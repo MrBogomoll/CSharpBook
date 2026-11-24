@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="ru.csharpbook.reader" android:versionCode="2" android:versionName="0.1.0">
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="35"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <application android:label="Учебник C#" android:icon="@drawable/book" android:allowBackup="false" android:networkSecurityConfig="@xml/network" android:theme="@android:style/Theme.DeviceDefault.DayNight">
+        <activity android:name=".BookActivity" android:exported="true" android:launchMode="singleTop" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode" android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

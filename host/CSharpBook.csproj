@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net11.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>CSharpBook</AssemblyName>
+    <Product>Учебник C#</Product>
+    <ApplicationIcon>book.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4370.26" />
+    <Compile Include="../runner/InputRoutes.cs" Link="InputRoutes.cs" />
+    <Compile Include="../server/BookServer.cs" Link="BookServer.cs" />
+    <Content Include="../wwwroot/**/*" Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
+  <Target Name="UseWinFormsWebViewOnly" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup><Reference Remove="@(Reference)" Condition="$([System.String]::Copy('%(Reference.Identity)').EndsWith('Microsoft.Web.WebView2.Wpf.dll'))" /></ItemGroup>
+  </Target>
+</Project>

@@ -1,0 +1,61 @@
+html { color-scheme: light dark; background:light-dark(#f7f6f9,#1b1923); scrollbar-gutter:stable; }
+body { margin:0; }
+#book { min-height:100vh; }
+#book .cs-product#app { min-height:100dvh; max-width:1480px; margin:0 auto; border:0; border-radius:0; overflow:clip; }
+button,summary { cursor:pointer; }
+button:disabled { cursor:wait; opacity:.6; }
+a { color:var(--cs-violet); }
+#book .cs-content { max-width:1060px; width:100%; margin-inline:auto; }
+#book .cs-home { max-width:1230px; margin:auto; }
+#book .cs-grid { min-height:calc(100dvh - 58px); }
+#book .cs-mobile-nav { z-index:4; }
+#book .cs-product .settings-icon { padding:9px; display:inline-flex; align-items:center; justify-content:center; color:var(--cs-weak); }
+#book .cs-product .settings-icon.on { color:var(--cs-violet); background:var(--cs-wash); }
+#book .header-tools { display:flex; align-items:center; gap:5px; }
+#book .loading,#book .settings-view { width:min(100% - 36px,780px); margin:48px auto; }
+#book .settings-view h2 { font-size:19px; margin:24px 0 8px; }
+#book .settings-view p { color:var(--cs-weak); margin-bottom:12px; }
+#book .settings-view fieldset { border:1px solid var(--cs-line); border-radius:10px; padding:14px; display:flex; flex-wrap:wrap; gap:18px; margin:22px 0; }
+#book .settings-view legend { padding:0 5px; font-weight:650; }
+#book .settings-view input { accent-color:var(--cs-violet); }
+#book .settings-view .cs-tool,#book .project-download { border:1px solid var(--cs-line); display:inline-flex; gap:8px; align-items:center; padding:8px 12px; border-radius:7px; }
+#book .project-download { text-decoration:none; margin:12px 0; color:var(--cs-violet); }
+#book .copyable { position:relative; margin:7px 0 12px; }
+#book .copyable .cs-snippet { margin:0; overflow:auto; }
+#book .copy-line { display:flex; justify-content:flex-end; }
+#book .cs-product .copy-small,#book .cs-product .file-tab { font-size:12px; padding:5px 8px; display:inline-flex; gap:4px; align-items:center; color:var(--cs-violet); }
+#book .cs-product .file-tab { border-radius:0; color:#c6c3d2; }
+#book .cs-product .file-tab.current { background:#3a3546; color:white; }
+#book .file-tabs { display:flex; flex-wrap:wrap; border-block:1px solid #403e50; }
+#book .cs-product .cs-output { white-space:pre-wrap; overflow-wrap:anywhere; }
+#book .cs-description,#book .cs-reading p,#book .cs-reading li,#book .cs-lead { white-space:pre-line; }
+#book .cs-reading pre.cs-snippet { white-space:pre; overflow-x:auto; }
+#book .cs-product .cp-input { display:flex; gap:8px; margin-top:6px; }
+#book .cp-input input { flex:1; min-width:0; padding:8px; border:1px solid #686478; border-radius:5px; color:inherit; background:#272532; }
+#book .cp-input button { color:#d2b8ff; }
+#book .cp-response { white-space:pre-wrap; overflow-wrap:anywhere; }
+#book .cp-response pre { white-space:pre-wrap; }
+#book .cs-walk { overflow-wrap:anywhere; }
+#book .cs-console-page { max-width:1240px; margin-inline:auto; }
+#book .cs-console-page .cx-product { border:0; border-radius:0; }
+@container csapp (min-width:1000px) { #book .cs-grid { grid-template-columns:240px minmax(0,1fr); } }
+@media (max-width:680px) { html { scrollbar-gutter:auto; } #book .cs-product#app { padding-bottom:calc(60px + env(safe-area-inset-bottom)); } #book .cs-mobile-nav { position:fixed; bottom:0; left:0; right:0; padding-bottom:max(5px,env(safe-area-inset-bottom)); } #book .cs-grid { min-height:0; } #book .cs-product .settings-icon { min-height:42px; min-width:42px; } }
+
+.cp-input[hidden],#book .cs-product button[hidden] {display:none!important;}
+#book .project-tour { margin:18px 0; }
+#book .project-tour p { line-height:1.55; margin:6px 0; }
+#book .project-browser { display:grid; grid-template-columns:minmax(140px,27%) minmax(0,1fr); border:1px solid var(--cs-line); border-radius:9px; margin:12px 0; overflow:hidden; }
+#book .project-files { background:var(--cs-nav); margin:0; padding:10px; min-width:0; }
+#book .project-files li { list-style:none; }
+#book .project-files ul { padding:0 0 0 10px; }
+#book .project-files summary { overflow-wrap:anywhere; }
+#book .project-files small { color:var(--cs-weak); }
+#book .project-files button { display:inline-flex; gap:4px; padding:5px 3px; max-width:100%; overflow-wrap:anywhere; font-size:12px; }
+#book .project-files button[aria-pressed=true] { background:var(--cs-wash); color:var(--cs-violet); }
+#book .project-file-content { padding:13px; min-width:0; }
+#book .project-file-content strong { overflow-wrap:anywhere; }
+#book .project-file-content .cs-snippet { padding:8px; background:var(--cs-nav); font:13px/1.55 Consolas,monospace; max-height:380px; }
+@media(max-width:680px){#book .project-browser{grid-template-columns:minmax(0,1fr)}}
+#book .version-label{font-size:11px;white-space:nowrap;font-weight:400;color:#bbb8cb;}
+#book .cs-product .sample-input,#book .cs-product .lesson-note { font-size:13px; color:var(--cs-weak); line-height:1.55; margin:8px 0; }
+#book .sample-input kbd { padding:2px 6px; border-radius:4px; background:var(--cs-hover); color:var(--cs-ink); }

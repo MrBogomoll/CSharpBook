@@ -1,0 +1,461 @@
+[
+  {
+    "title": "Исключения, отладка и файлы",
+    "topics": [
+      {
+        "id": "exceptions",
+        "title": "Как обработать исключение",
+        "intro": "Покупатель вводит количество билетов. В поле могут оказаться буквы или слишком большое число. Разберём, как программа сообщает о сбое и при каких условиях может продолжить работу.",
+        "section": "Когда выполнение прерывается",
+        "description": "Компилятор проверяет запись команды. Во время выполнения даже верная запись может встретить неподходящие данные. Метод int.Parse умеет преобразовать строку с числом, а при неподходящем формате выбрасывает исключение FormatException.",
+        "examples": [
+          {
+            "name": "Буквы вместо числа",
+            "code": "try\n{\n    int tickets = int.Parse(\"два\");\n    Console.WriteLine(tickets);\n}\ncatch (FormatException)\n{\n    Console.WriteLine(\"Введите целое число\");\n}\nConsole.WriteLine(\"Касса открыта\");",
+            "output": "Введите целое число\nКасса открыта",
+            "steps": [
+              "Внутри try программа пытается получить число из слова «два».",
+              "Преобразование выбрасывает FormatException. Команда вывода tickets пропускается.",
+              "Подходящий catch показывает понятное сообщение. Следующая команда после блока выполняется."
+            ]
+          },
+          {
+            "name": "Число за пределами типа",
+            "code": "try\n{\n    byte seats = byte.Parse(\"300\");\n    Console.WriteLine(seats);\n}\ncatch (OverflowException)\n{\n    Console.WriteLine(\"Допустимо от 0 до 255\");\n}",
+            "output": "Допустимо от 0 до 255",
+            "steps": [
+              "Строка содержит целое число.",
+              "Для byte доступно 256 значений от 0 до 255. Значение 300 приводит к OverflowException.",
+              "Обработчик поясняет, какие данные подойдут."
+            ]
+          }
+        ],
+        "learn": [
+          {
+            "title": "Как читать сообщение",
+            "text": "Сначала найди тип исключения. FormatException указывает на формат, OverflowException — на выход за диапазон. Далее прочитай сообщение и найди строку своего исходного кода. Точный текст сообщения зависит от среды и языка системы."
+          },
+          {
+            "title": "Где нужен TryParse",
+            "text": "Для обычного поля ввода удобно int.TryParse. Он возвращает false, когда введённый текст не удалось преобразовать. try/catch пригодится, если вызываемый метод сообщает о сбое исключением, например при чтении файла."
+          }
+        ],
+        "mistake": {
+          "wrong": "catch (OverflowException) { }",
+          "why": "Такой блок молча скрывает проблему с диапазоном. Пользователь видит пропавший результат.",
+          "fix": "catch (OverflowException)\n{\n    Console.WriteLine(\"Слишком большое число\");\n}"
+        },
+        "practice": {
+          "question": "Что выполнится сразу после ошибки преобразования в первом примере?",
+          "choices": [
+            "Вывод tickets",
+            "Тело catch для FormatException",
+            "Повторная попытка преобразования"
+          ],
+          "correct": 1,
+          "hint": "Проследи, какой тип исключения возникает.",
+          "explanation": "Выполнение переходит к обработчику соответствующего типа."
+        },
+        "task": {
+          "instruction": "Попробуй преобразовать строку «утро» в число через int.Parse. Перехвати FormatException и выведи «Нужно число».",
+          "solution": "try\n{\n    Console.WriteLine(int.Parse(\"утро\"));\n}\ncatch (FormatException)\n{\n    Console.WriteLine(\"Нужно число\");\n}",
+          "output": "Нужно число"
+        },
+        "source": {
+          "label": "Обработка исключений в C#",
+          "url": "https://learn.microsoft.com/ru-ru/dotnet/csharp/fundamentals/exceptions/exception-handling"
+        }
+      },
+      {
+        "id": "debugger",
+        "title": "Как найти строку, в которой пошёл неверный расчёт",
+        "intro": "Касса печатает целое число вместо цены с дробной частью. Программа завершается успешно. Посмотрим на промежуточное значение и разберём, как проделать то же в отладчике.",
+        "section": "Наблюдаем за переменной",
+        "description": "Результат 3 / 2 зависит от типа операндов. Промежуточный вывод позволяет проверить предположение прямо в учебной консоли.",
+        "examples": [
+          {
+            "name": "Печатаем промежуточный результат",
+            "code": "int total = 3;\nint people = 2;\nint share = total / people;\nConsole.WriteLine($\"Делимое {total}, делитель {people}\");\nConsole.WriteLine(share);",
+            "output": "Делимое 3, делитель 2\n1",
+            "steps": [
+              "total и people хранят целые числа.",
+              "При целочисленном делении дробная часть отбрасывается.",
+              "Промежуточный вывод подтверждает, что оба входных значения верны."
+            ]
+          },
+          {
+            "name": "Проверяем исправление",
+            "code": "using System.Globalization;\nint total = 3;\nint people = 2;\ndecimal share = (decimal)total / people;\nConsole.WriteLine(share.ToString(CultureInfo.InvariantCulture));",
+            "output": "1.5",
+            "steps": [
+              "Приведение total к decimal происходит до деления.",
+              "Результат 1,5 помещается в share.",
+              "InvariantCulture задаёт точку в текстовом представлении, чтобы пример одинаково выводился на разных устройствах."
+            ]
+          }
+        ],
+        "learn": [
+          {
+            "title": "Точка останова",
+            "text": "На ПК открой проект в VS Code с поддержкой C#. Щёлкни в поле слева от номера строки с присваиванием share. Появится красная точка. Запусти отладку. Выполнение остановится перед строкой, и в списке переменных будут видны total и people."
+          },
+          {
+            "title": "Шаг и стек вызовов",
+            "text": "Выполни команду «Шаг с обходом» (Step Over). Присваивание завершится, и значение share станет видно. Если вычисление вынесено в метод, «Шаг с заходом» (Step Into) позволит войти в него. Панель Call Stack показывает текущий метод и места, из которых его вызвали. В стеке исключения найди ближайший кадр своего проекта, открой строку и проверь значения перед сбоем."
+          }
+        ],
+        "mistake": {
+          "wrong": "decimal share = (decimal)(3 / 2);",
+          "why": "Сначала выполняется целое деление и получается 1. Приведение готового результата не вернёт дробную часть.",
+          "fix": "decimal share = (decimal)3 / 2;"
+        },
+        "practice": {
+          "question": "Программа остановилась на строке присваивания до её выполнения. Как увидеть новый результат?",
+          "choices": [
+            "Выполнить шаг с обходом",
+            "Сразу закрыть проект",
+            "Переименовать переменную"
+          ],
+          "correct": 0,
+          "hint": "Нужно выполнить именно эту строку.",
+          "explanation": "После шага отладчик показывает новое состояние программы."
+        },
+        "task": {
+          "instruction": "Сравни результаты 7 / 2 и (decimal)7 / 2. Для одинакового вывода дробного числа на разных устройствах используй CultureInfo.InvariantCulture.",
+          "solution": "using System.Globalization;\nConsole.WriteLine(7 / 2);\nConsole.WriteLine(((decimal)7 / 2).ToString(CultureInfo.InvariantCulture));",
+          "output": "3\n3.5"
+        },
+        "source": {
+          "label": "Отладка C# в Visual Studio Code",
+          "url": "https://code.visualstudio.com/docs/csharp/debugging"
+        }
+      },
+      {
+        "id": "text-files",
+        "title": "Запись и чтение текстового файла",
+        "intro": "Покупатель вернулся к списку дел после закрытия программы. Для такого сценария данные можно записать в файл. Начнём с одной строки, затем прочитаем список.",
+        "section": "Как приложение находит данные",
+        "description": "Путь из одного имени указывает на файл в текущей рабочей папке. Учебная консоль предоставляет временные файлы на один запуск. В локальном проекте файл останется на диске после завершения программы.",
+        "examples": [
+          {
+            "name": "Сохранить имя",
+            "code": "File.WriteAllText(\"name.txt\", \"Лена\");\nstring name = File.ReadAllText(\"name.txt\");\nConsole.WriteLine($\"Привет, {name}!\");",
+            "output": "Привет, Лена!",
+            "steps": [
+              "WriteAllText создаёт файл или заменяет его содержимое.",
+              "ReadAllText возвращает всё содержимое в виде одной строки.",
+              "Строка попадает в приветствие. Расширение .txt выбрано для удобства чтения обычным редактором."
+            ]
+          },
+          {
+            "name": "Прочитать покупки",
+            "code": "File.WriteAllLines(\"list.txt\", new[] { \"Хлеб\", \"Молоко\" });\nstring[] products = File.ReadAllLines(\"list.txt\");\nforeach (string product in products)\n{\n    Console.WriteLine(product);\n}",
+            "output": "Хлеб\nМолоко",
+            "steps": [
+              "WriteAllLines записывает каждое название на отдельной строке.",
+              "ReadAllLines возвращает массив, по одному элементу на строку.",
+              "Цикл выводит все элементы по порядку."
+            ]
+          }
+        ],
+        "learn": [
+          {
+            "title": "Если файл ещё не создан",
+            "text": "При первом запуске настройки могут отсутствовать. Вызов ReadAllText для отсутствующего файла в существующей папке выбрасывает FileNotFoundException. В его обработчике можно выбрать настройки по умолчанию. Для отсутствующей папки существует отдельный тип DirectoryNotFoundException."
+          },
+          {
+            "title": "Пути на разных системах",
+            "text": "Path.Combine(\"data\", \"notes.txt\") собирает путь из частей по правилам системы. Папку data предварительно создаёт Directory.CreateDirectory(\"data\"). Для больших файлов удобно перечислять строки через File.ReadLines, обрабатывая их по одной."
+          }
+        ],
+        "mistake": {
+          "wrong": "File.WriteAllText(\"log.txt\", \"Вход\");\nFile.WriteAllText(\"log.txt\", \"Выход\");",
+          "why": "Вторая запись заменяет первую. Для журнала события следует добавлять в конец, учитывая перевод строки.",
+          "fix": "File.WriteAllText(\"log.txt\", \"Вход\" + Environment.NewLine);\nFile.AppendAllText(\"log.txt\", \"Выход\");"
+        },
+        "practice": {
+          "question": "Как прочитать текстовый список, получив отдельный элемент для каждой строки?",
+          "choices": [
+            "File.ReadAllText",
+            "File.ReadAllLines",
+            "File.WriteAllLines"
+          ],
+          "correct": 1,
+          "hint": "Слово Lines указывает на строки, Read — на чтение.",
+          "explanation": "ReadAllLines возвращает массив строк."
+        },
+        "task": {
+          "instruction": "Попробуй прочитать отсутствующий файл profile-missing.txt. Если файла нет, выведи «Первый запуск».",
+          "solution": "try\n{\n    Console.WriteLine(File.ReadAllText(\"profile-missing.txt\"));\n}\ncatch (FileNotFoundException)\n{\n    Console.WriteLine(\"Первый запуск\");\n}",
+          "output": "Первый запуск"
+        },
+        "source": {
+          "label": "Чтение текста из файла",
+          "url": "https://learn.microsoft.com/ru-ru/dotnet/standard/io/how-to-read-text-from-a-file"
+        }
+      },
+      {
+        "id": "json-settings",
+        "title": "Настройки приложения в JSON",
+        "intro": "У пользователя есть имя и выбранная тема оформления. Их удобно хранить вместе. JSON записывает именованные поля так, что другую программу можно научить читать эти же данные.",
+        "section": "Объект, свойство и значение",
+        "description": "В JSON объект заключён в фигурные скобки. У свойства есть имя в двойных кавычках и значение после двоеточия. В примере обычная строка C# содержит JSON, поэтому внутренние кавычки экранированы.",
+        "examples": [
+          {
+            "name": "Прочитать настройки",
+            "code": "using System.Text.Json;\nstring json = \"{\\\"name\\\":\\\"Лена\\\",\\\"dark\\\":true}\";\nusing JsonDocument settings = JsonDocument.Parse(json);\nvar root = settings.RootElement;\nConsole.WriteLine(root.GetProperty(\"name\").GetString());\nConsole.WriteLine(root.GetProperty(\"dark\").GetBoolean());",
+            "output": "Лена\nTrue",
+            "steps": [
+              "Parse читает текст и проверяет синтаксис JSON.",
+              "RootElement представляет весь объект. GetProperty выбирает поле с указанным именем.",
+              "GetString читает текст, а GetBoolean — логическое значение. using освободит ресурсы документа в конце области видимости."
+            ]
+          },
+          {
+            "name": "Повреждённый файл",
+            "code": "using System.Text.Json;\nFile.WriteAllText(\"settings.json\", \"{\");\ntry\n{\n    using var doc = JsonDocument.Parse(File.ReadAllText(\"settings.json\"));\n    Console.WriteLine(\"Настройки загружены\");\n}\ncatch (JsonException)\n{\n    Console.WriteLine(\"Используем обычную тему\");\n}",
+            "output": "Используем обычную тему",
+            "steps": [
+              "В файл намеренно записана только открывающая скобка.",
+              "Разбор документа завершается JsonException.",
+              "Обработчик выбирает запасное поведение и сохраняет возможность продолжить работу."
+            ]
+          }
+        ],
+        "learn": [
+          {
+            "title": "Поле может отсутствовать",
+            "text": "Старый файл настроек может содержать имя без поля dark. После проверки, что корень — объект, TryGetProperty позволяет проверить наличие свойства. Прежде чем читать типизированное значение, проверь ValueKind. Например, JsonValueKind.String обозначает текст."
+          },
+          {
+            "title": "Когда удобнее готовый класс",
+            "text": "Если форма данных известна заранее, можно описать класс Settings и преобразовывать его в текст с помощью JsonSerializer.Serialize, а текст в объект — с помощью Deserialize. После чтения всё равно проверь значения, например допустимый диапазон громкости."
+          }
+        ],
+        "mistake": {
+          "wrong": "root.GetProperty(\"Name\")",
+          "why": "Имена свойств при таком поиске чувствительны к регистру. Если документ содержит name, запрос Name не найдёт свойство.",
+          "fix": "root.GetProperty(\"name\")"
+        },
+        "practice": {
+          "question": "Что произойдёт с текстом, в котором забыли закрывающую фигурную скобку?",
+          "choices": [
+            "Parse автоматически допишет скобку",
+            "Parse выбросит JsonException",
+            "Появится пустая строка"
+          ],
+          "correct": 1,
+          "hint": "Сначала библиотека проверяет синтаксис всего документа.",
+          "explanation": "У повреждённого текста нет полного JSON-объекта."
+        },
+        "task": {
+          "instruction": "Прочитай поле volume из JSON с числом 7 и выведи его как целое число.",
+          "solution": "using System.Text.Json;\nusing var doc = JsonDocument.Parse(\"{\\\"volume\\\":7}\");\nConsole.WriteLine(doc.RootElement.GetProperty(\"volume\").GetInt32());",
+          "output": "7"
+        },
+        "source": {
+          "label": "Работа с JsonDocument",
+          "url": "https://learn.microsoft.com/ru-ru/dotnet/standard/serialization/system-text-json/use-dom"
+        }
+      }
+    ]
+  },
+  {
+    "title": "Асинхронность и тестирование",
+    "topics": [
+      {
+        "id": "async-await",
+        "title": "Как дождаться результата с await",
+        "intro": "Загрузка заметки занимает время. Приложение может дождаться завершения операции и продолжить с полученным текстом. Для этого операция возвращает Task или Task<T>.",
+        "section": "Задача и её результат",
+        "description": "Task представляет работу, которая может завершиться позднее. Task<string> также обещает результат типа string. Выражение await получает результат после завершения работы. Оно может сразу продолжить выполнение, если задача уже завершилась.",
+        "examples": [
+          {
+            "name": "Порядок сообщений",
+            "code": "Console.WriteLine(\"Начинаем\");\nawait Task.Delay(10);\nConsole.WriteLine(\"Готово\");",
+            "output": "Начинаем\nГотово",
+            "steps": [
+              "Первое сообщение выводится сразу.",
+              "Task.Delay создаёт задачу задержки. await позволяет продолжить с этой строки после её завершения.",
+              "Последний вывод выполняется после задержки."
+            ]
+          },
+          {
+            "name": "Заметка из файла",
+            "code": "await File.WriteAllTextAsync(\"note.txt\", \"Купить чай\");\nstring note = await File.ReadAllTextAsync(\"note.txt\");\nConsole.WriteLine(note);",
+            "output": "Купить чай",
+            "steps": [
+              "Первый await дожидается записи и закрытия файла.",
+              "Второй получает строку после чтения.",
+              "Выведено содержимое файла."
+            ]
+          }
+        ],
+        "learn": [
+          {
+            "title": "Что делает async",
+            "text": "У собственного асинхронного метода ставят модификатор async, чтобы внутри можно было использовать await. Метод async Task выполняет действие, а async Task<int> возвращает целое число через return. В верхнеуровневых строках Program.cs await разрешён без явного объявления метода."
+          },
+          {
+            "title": "Почему это важно для окна",
+            "text": "При ожидании незавершённой асинхронной операции поток интерфейса может обрабатывать нажатия и отрисовку. Долгий обычный цикл внутри async-метода по-прежнему занимает поток, на котором выполняется. Исключение задачи можно обработать блоком try/catch вокруг await."
+          }
+        ],
+        "mistake": {
+          "wrong": "var note = File.ReadAllTextAsync(\"note.txt\");\nConsole.WriteLine(note);",
+          "why": "Переменная имеет тип Task<string>. Печать самого объекта задачи не извлекает текст файла.",
+          "fix": "string note = await File.ReadAllTextAsync(\"note.txt\");\nConsole.WriteLine(note);"
+        },
+        "practice": {
+          "question": "Какой тип у значения после await для задачи Task<int>?",
+          "choices": [
+            "Task",
+            "int",
+            "string"
+          ],
+          "correct": 1,
+          "hint": "Посмотри на тип внутри угловых скобок.",
+          "explanation": "Выражение await возвращает результат задачи типа int."
+        },
+        "task": {
+          "instruction": "Напиши метод async Task<string> LoadAsync(). Внутри дождись Task.Delay(10), верни «Загружено» и выведи результат вызова через await.",
+          "solution": "Console.WriteLine(await LoadAsync());\n\nstatic async Task<string> LoadAsync()\n{\n    await Task.Delay(10);\n    return \"Загружено\";\n}",
+          "output": "Загружено"
+        },
+        "source": {
+          "label": "Возвращаемые типы асинхронных методов",
+          "url": "https://learn.microsoft.com/ru-ru/dotnet/csharp/asynchronous-programming/async-return-types"
+        }
+      },
+      {
+        "id": "cancellation",
+        "title": "Как отменить незавершённую операцию",
+        "intro": "Пользователь закрыл поиск раньше, чем он завершился. Отмена позволяет попросить операцию прекратить работу и вернуть управление предсказуемым способом.",
+        "section": "Кто посылает запрос отмены",
+        "description": "CancellationTokenSource создаёт запрос отмены, а CancellationToken передаётся тому, кто выполняет работу. Чтобы отреагировать, операция должна проверять токен или передавать его в метод с поддержкой отмены.",
+        "examples": [
+          {
+            "name": "Отмена ожидания",
+            "code": "using var source = new CancellationTokenSource();\nTask waiting = Task.Delay(30000, source.Token);\nsource.Cancel();\ntry\n{\n    await waiting;\n}\ncatch (OperationCanceledException)\n{\n    Console.WriteLine(\"Ожидание отменено\");\n}",
+            "output": "Ожидание отменено",
+            "steps": [
+              "Создаётся задержка с токеном.",
+              "Cancel посылает запрос, пока таймер ещё не истёк.",
+              "При await отменённой задержки выполняется catch. Ждать 30 секунд не приходится."
+            ]
+          },
+          {
+            "name": "Проверка перед следующим шагом",
+            "code": "using var source = new CancellationTokenSource();\nfor (int step = 1; step <= 4; step++)\n{\n    if (source.Token.IsCancellationRequested) break;\n    Console.WriteLine(step);\n    if (step == 2) source.Cancel();\n}",
+            "output": "1\n2",
+            "steps": [
+              "Цикл перед каждым шагом проверяет токен.",
+              "После второго вывода посылается запрос отмены.",
+              "В начале третьей итерации break завершает цикл."
+            ]
+          }
+        ],
+        "learn": [
+          {
+            "title": "Как выбрать место проверки",
+            "text": "В цикле удобно проверять отмену перед новой порцией работы. ThrowIfCancellationRequested выбрасывает OperationCanceledException, которую может обработать вызывающий код. Для долгого ввода-вывода передавай токен самому методу, например в ReadAllTextAsync."
+          },
+          {
+            "title": "Что будет с уже записанными данными",
+            "text": "Cancel сообщает о желании остановиться. Выполненные действия сохраняются, если приложение само их не отменит. Например, экспорт отчёта может писать во временный файл и заменять итоговый файл только после успешного завершения."
+          }
+        ],
+        "mistake": {
+          "wrong": "await Task.Delay(30000);",
+          "why": "Этой задержке не передали токен. Она не получает запрос отмены от созданного источника.",
+          "fix": "await Task.Delay(30000, source.Token);"
+        },
+        "practice": {
+          "question": "Какой объект обычно передают в выполняемую операцию?",
+          "choices": [
+            "CancellationToken",
+            "CancellationTokenSource целиком",
+            "Число секунд после запуска"
+          ],
+          "correct": 0,
+          "hint": "Операции нужно узнать, отправлена ли отмена.",
+          "explanation": "Токен позволяет операции наблюдать за запросом."
+        },
+        "task": {
+          "instruction": "Создай источник отмены, вызови Cancel и выведи значение IsCancellationRequested у его токена.",
+          "solution": "using var source = new CancellationTokenSource();\nsource.Cancel();\nConsole.WriteLine(source.Token.IsCancellationRequested);",
+          "output": "True"
+        },
+        "source": {
+          "label": "Отмена в управляемых потоках",
+          "url": "https://learn.microsoft.com/ru-ru/dotnet/standard/threading/cancellation-in-managed-threads"
+        }
+      },
+      {
+        "id": "unit-tests",
+        "title": "Как проверить расчёт автоматическим тестом",
+        "intro": "Для заказов от 1000 рублей доставка бесплатна. Ошибка в одном знаке изменит цену у покупателей с заказом ровно на 1000 рублей. Напишем проверку, которая заметит такую ошибку при следующем изменении кода.",
+        "section": "Ожидаемый и фактический результат",
+        "description": "Тест задаёт вход, вызывает один конкретный расчёт и сравнивает ответ с заранее известным. В консоли начнём с обычной функции сравнения. В архиве ниже те же проверки оформлены для запуска через dotnet test.",
+        "examples": [
+          {
+            "name": "Проверка на границе",
+            "code": "static int Delivery(int total) => total >= 1000 ? 0 : 100;\nint actual = Delivery(1000);\nint expected = 0;\nConsole.WriteLine(actual == expected ? \"Проверка пройдена\" : \"Ошибка\");",
+            "output": "Проверка пройдена",
+            "steps": [
+              "Подготовь особый случай — заказ ровно на пороге.",
+              "Вызови расчёт один раз и сохрани фактический ответ.",
+              "Сравни его с ожидаемой нулевой стоимостью доставки."
+            ]
+          },
+          {
+            "name": "Три соседних значения",
+            "code": "static int Delivery(int total) => total >= 1000 ? 0 : 100;\n(int total, int expected)[] cases = [(999, 100), (1000, 0), (1001, 0)];\nforeach (var (total, expected) in cases)\n{\n    Console.WriteLine($\"{total} — {Delivery(total) == expected}\");\n}",
+            "output": "999 — True\n1000 — True\n1001 — True",
+            "steps": [
+              "Каждая пара содержит вход и ожидаемый ответ.",
+              "Проверены значения до порога, на самом пороге и сразу после него.",
+              "Если заменить >= на >, проверка 1000 выведет False."
+            ]
+          }
+        ],
+        "learn": [
+          {
+            "title": "Где живут настоящие тесты",
+            "text": "Открой архив с примером. В ExpenseTracker находится класс DeliveryPrice, в ExpenseTracker.Tests — DeliveryPriceTests.cs. Файл решения ExpenseTracker.slnx объединяет проекты. Ссылка ProjectReference в тестовом проекте позволяет вызвать расчёт из основного проекта."
+          },
+          {
+            "title": "Как запустить и увидеть сбой",
+            "text": "Распакуй архив на ПК. В терминале из папки, где лежит ExpenseTracker.slnx, выполни dotnet test. Для первой загрузки пакетов MSTest нужен интернет. Затем замени в DeliveryPrice.cs условие >= на > и запусти тесты снова. У случая 1000 появится расхождение между ожидаемым 0 и фактическим 100. Верни >= и проверь результат."
+          }
+        ],
+        "mistake": {
+          "wrong": "int expected = Delivery(1000);\nint actual = Delivery(1000);",
+          "why": "Если обе стороны получены одним и тем же ошибочным расчётом, проверка пропустит ошибку. Ожидание берут из условия задачи.",
+          "fix": "int expected = 0;\nint actual = Delivery(1000);"
+        },
+        "practice": {
+          "question": "Какой заказ отличит условие total > 1000 от total >= 1000?",
+          "choices": [
+            "999",
+            "1000",
+            "1001"
+          ],
+          "correct": 1,
+          "hint": "Два условия расходятся только при равенстве.",
+          "explanation": "На самой границе >= уже включает бесплатную доставку."
+        },
+        "task": {
+          "instruction": "Для условия бесплатной доставки от 500 рублей напиши две проверки. При заказе 499 доставка стоит 70, при заказе 500 стоит 0. Выведи результаты сравнений.",
+          "solution": "static int Delivery(int total) => total >= 500 ? 0 : 70;\nConsole.WriteLine(Delivery(499) == 70);\nConsole.WriteLine(Delivery(500) == 0);",
+          "output": "True\nTrue"
+        },
+        "source": {
+          "label": "Модульное тестирование с MSTest",
+          "url": "https://learn.microsoft.com/ru-ru/dotnet/core/testing/unit-testing-with-mstest"
+        },
+        "projectUrl": "projects/ExpenseTracker-tests.zip"
+      }
+    ]
+  }
+]

@@ -1,0 +1,16 @@
+bin/
+obj/
+__pycache__/
+*.pyc
+dist/
+build-android/
+signing/
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.dpapi
+*.apk
+*.local.ps1
+.android-workdir.local
+.vs/
