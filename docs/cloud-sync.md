@@ -5,19 +5,20 @@
 ## Google Диск
 
 1. В Google Cloud включи Google Drive API. В Google Auth Platform укажи сведения о приложении, аудиторию и разрешение `https://www.googleapis.com/auth/drive.appdata`. Для тестовой регистрации добавь тестовые аккаунты.
-2. Создай в **одном проекте** два OAuth-клиента. Для Windows выбери тип Desktop app. Для Android выбери тип Android, имя пакета `ru.csharpbook.reader` и SHA-1 сертификата, которым подписан релиз. Для обновления официальной 0.2.0 это `6B:81:1B:96:C8:9B:C9:2C:E2:2F:A5:8D:84:C4:FC:C0:EC:F3:42:33`.
+2. Создай OAuth-клиенты Windows и нужных вариантов Android в **одном проекте**. Для Windows выбери тип Desktop app. Для Android выбери тип Android, имя пакета `ru.csharpbook.reader` и SHA-1 сертификата, которым подписан релиз. Для обновления официальной 0.2.0 это `6B:81:1B:96:C8:9B:C9:2C:E2:2F:A5:8D:84:C4:FC:C0:EC:F3:42:33`. Для предоставленного тестового APK 0.3.0 создай отдельный Android-клиент с именем `ru.csharpbook.reader.preview` и SHA-1 `12:96:9B:59:03:C2:95:B5:F8:79:E1:7D:53:32:22:99:09:1F:94:A4`. Для APK, подписанного другим ключом, возьми отпечаток из `apksigner verify --print-certs приложение.apk`.
 3. В конфигурации Windows укажи идентификатор desktop-клиента и значение desktop client secret, если его выдал Google. В конфигурации Android включи `googleAndroidConfigured` после регистрации пакета. Вход на телефоне выполняют сервисы Google Play. При выпуске для всех пользователей переключи аудиторию приложения из тестовой в рабочую.
 
 [Папка приложения в Google Drive](https://developers.google.com/workspace/drive/api/guides/appdata) · [OAuth для настольных приложений](https://developers.google.com/identity/protocols/oauth2/native-app)
 
 ## Яндекс Диск
 
-В кабинете Яндекс OAuth создай приложение типа **«Для авторизации пользователей»**. В разделе «Веб-сервисы» добавь оба адреса возврата. В доступах укажи «Доступ к папке приложения на Диске», `cloud_api:disk.app_folder`. Один ClientID используется на обеих платформах. Учебник использует PKCE.
+В кабинете Яндекс OAuth создай приложение типа **«Для авторизации пользователей»**. В разделе «Веб-сервисы» добавь адреса возврата тех вариантов, которые будешь распространять. В доступах укажи «Доступ к папке приложения на Диске», `cloud_api:disk.app_folder`. Один ClientID используется на обеих платформах. Учебник использует PKCE.
 
 | Платформа | Redirect URI |
 | --- | --- |
 | Windows | `http://127.0.0.1:53823/callback` |
 | Android | `ru.csharpbook.reader://oauth/yandex` |
+| Android, тестовая сборка | `ru.csharpbook.reader.preview://oauth/yandex` |
 
 [Регистрация приложения с адресами возврата](https://yandex.ru/dev/id/doc/ru/register-auth) · [Обмен кода с PKCE](https://yandex.ru/dev/id/doc/ru/codes/code-url)
 
@@ -35,7 +36,7 @@
 
 При публикации Windows-приложения передай полный путь через `-p:CloudSyncConfig="C:\build\windows\cloud-sync.json"`. Для локальной проверки настройки также читаются из `%LOCALAPPDATA%\CSharpBook\cloud-sync.json` текущего пользователя Windows.
 
-Для Android скопируй `android/cloud-sync.example.json` в `android/cloud-sync.json` и укажи `googleAndroidConfigured` и `yandexClientId`. Windows-конфигурация и Android-конфигурация различаются. Собери APK скриптом `android/Build-Apk.ps1` с исходным рабочим каталогом подписи для обновления поверх прежней версии. Токены пользователь получает на своём устройстве при подключении диска.
+Для Android скопируй `android/cloud-sync.example.json` в `android/cloud-sync.json` и укажи `googleAndroidConfigured` и `yandexClientId`. Windows-конфигурация и Android-конфигурация различаются. Собери APK скриптом `android/Build-Apk.ps1` с исходным рабочим каталогом подписи для обновления поверх прежней версии. Для тестовой сборки передай её собственный JSON через `./android/Build-Apk.ps1 -Preview -CloudConfig C:\build\preview\cloud-sync.json`. Без явного пути тестовая сборка отключает прямой вход. Токены пользователь получает на своём устройстве при подключении диска.
 
 ## Проверка перед выпуском
 

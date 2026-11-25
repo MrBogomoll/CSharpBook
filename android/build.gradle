@@ -28,10 +28,12 @@ def stageAssets = tasks.register('stageBookAssets', Sync) {
     }
 }
 
+def previewConfig = file(providers.gradleProperty('previewCloudConfig').getOrElse('cloud-sync.example.json'))
 def previewAssets = layout.buildDirectory.dir('generated/previewCloudAssets')
 def stagePreviewConfig = tasks.register('stagePreviewConfig', Sync) {
     into previewAssets
-    from('cloud-sync.example.json') { rename { 'cloud-sync.json' } }
+    inputs.file(previewConfig)
+    from(previewConfig) { rename { 'cloud-sync.json' } }
 }
 
 android {

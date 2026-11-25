@@ -16,6 +16,14 @@ pwsh -File ./android/Build-Apk.ps1 -WebRoot ./wwwroot -WorkDir ./build-android
 
 Для сборки с настроенным облаком скопируй `cloud-sync.example.json` в `android/cloud-sync.json` или передай путь параметром `-CloudConfig`. В файл входят флаг настройки Google для текущих имени пакета и сертификата и публичный идентификатор клиента Яндекса. Без регистрации клиентов оба провайдера по умолчанию выключены. Файл с настройками попадает в `assets/cloud-sync.json` в APK.
 
-Вызов `./android/Build-Apk.ps1 -Preview` (задача Gradle `assemblePreview`) собирает отдельное приложение «Учебник C# · Тест» (`ru.csharpbook.reader.preview`) с тестовой подписью. У него собственный прогресс, настройки из примера и ручное обновление APK.
+Вызов `./android/Build-Apk.ps1 -Preview` (задача Gradle `assemblePreview`) собирает отдельное приложение «Учебник C# · Тест» (`ru.csharpbook.reader.preview`) с тестовой подписью. У него собственный прогресс и ручное обновление APK. По умолчанию для тестовой сборки используется пустой `cloud-sync.example.json`, в том числе при наличии `android/cloud-sync.json`. Чтобы включить прямой вход, зарегистрируй тестовый пакет и его сертификат в Google и адрес возврата `ru.csharpbook.reader.preview://oauth/yandex` в Яндексе. Передай конфигурацию, подготовленную для этой сборки:
+
+```powershell
+./android/Build-Apk.ps1 -Preview -CloudConfig C:\build\preview\cloud-sync.json
+```
+
+При вызове Gradle напрямую укажи `-PpreviewCloudConfig=<путь>` для `assemblePreview` или `-PcloudConfig=<путь>` для `assembleRelease`. Для повторных обновлений тестовой сборки сохрани её исходный `debug.keystore`: регистрация Google Android привязана к паре «имя пакета и SHA-1 сертификата».
+
+[Регистрация приложений Google и Яндекс](../docs/cloud-sync.md)
 
 Версия 0.3.0 использует versionCode 6. Стабильная версия 0.2.0 использовала versionCode 5. Первый стабильный выпуск 0.1.0 использовал versionCode 2. Для установки обновления поверх прежней версии нужен больший versionCode и тот же ключ подписи. Скрипт сверяет содержимое APK с исходниками и проверяет подпись и выравнивание файла.

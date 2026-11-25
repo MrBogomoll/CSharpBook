@@ -2,6 +2,7 @@ import {SyncEngine, isSyncKey} from './sync-engine.js';
 import {available, getStatus, connect, disconnect, getProvider, openExchangeFile, saveExchangeFile} from './sync-bridge.js';
 
 const providers = {google: 'Google Диск', yandex: 'Яндекс Диск'};
+const folderNames = {google: 'Папка Google Диска', yandex: 'Папка Яндекс Диска'};
 
 function showValue(value) {
   if (value === null) return 'Удалено';
@@ -36,13 +37,13 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
     if (signature !== connectionControls) {
       connectionControls = signature;
       actions.replaceChildren();
-      const add = (text, command) => {
+      const add = (text, command, group = actions) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'cs-tool';
         button.textContent = text;
         button.dataset.sync = command;
-        actions.append(button);
+        group.append(button);
       };
       const usingDocuments = label === 'Android' && configured.documents === true;
       const direct = Object.keys(providers).some(id => configured[id]);
@@ -71,14 +72,24 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
         add('Назад', 'back');
       } else {
         intro = direct
-          ? 'Выбери один способ обмена на обоих устройствах. При подключении учебник объединит прогресс, закладки, заметки и черновики.'
+          ? 'Подключи один и тот же аккаунт на ПК и телефоне. Учебник будет автоматически синхронизировать прогресс, закладки, заметки и черновики.'
           : 'Выбери диск для обмена через общую папку. Учебник объединит прогресс, закладки, заметки и черновики.';
-        for (const [id, name] of Object.entries(providers)) add(name, id);
+        for (const [id, name] of Object.entries(providers)) {
+          if (configured[id]) add('Подключить ' + name, id);
+          else if (!direct) add(folderNames[id], 'folder-' + id);
+          else intro += ' Вариант «' + folderNames[id] + '» доступен в разделе «Другие способы синхронизации».';
+        }
       }
       settings.querySelector('.sync-description').textContent = intro;
       const more = settings.querySelector('.sync-more');
-      more.hidden = !(native && statusReady && !provider && !selected && direct);
-      more.firstElementChild.textContent = usingDocuments ? 'Через папку или файлы' : 'Через папку на устройстве';
+      const showFolderOptions = native && statusReady && !provider && !selected && direct;
+      more.hidden = !showFolderOptions;
+      more.firstElementChild.replaceChildren();
+      if (showFolderOptions) {
+        for (const [id, name] of Object.entries(folderNames)) add(name, 'folder-' + id, more.firstElementChild);
+      }
+      settings.querySelector('.sync-transfer summary').textContent = showFolderOptions
+        ? 'Другие способы синхронизации' : 'Передать файл прогресса вручную';
       settings.querySelector('.sync-documents-help').hidden = !(usingDocuments && selected && !provider);
     }
     for (const button of settings.querySelectorAll('[data-sync]')) button.disabled = busy;
@@ -138,8 +149,8 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
     connectionControls = conflictsVersion = '';
     settings.innerHTML = '<h2>Синхронизация</h2><p class="sync-description"></p><div class="sync-actions"></div>' +
       '<p class="sync-documents-help" hidden>Для связи через два файла сначала подключи папку диска в учебнике на ПК и нажми «Синхронизировать сейчас». На телефоне открой в ней файл ПК csharpbook-v1-….json, затем сохрани файл телефона в той же папке под предложенным именем. Дальше обмен пойдёт автоматически.</p>' +
-      '<div class="sync-more" hidden><button type="button" class="cs-tool" data-sync="choose-folder">Через папку на устройстве</button></div>' +
       '<details class="sync-transfer"><summary>Передать файл прогресса вручную</summary>' +
+      '<div class="sync-more" hidden><div class="sync-actions"></div></div>' +
       '<p>Сохрани файл на одном устройстве и открой его на другом. Можно передать файл через Google Диск или Яндекс Диск. При импорте учебник объединит прогресс.</p>' +
       '<div class="sync-actions"><button type="button" class="cs-tool" data-sync="export">Сохранить файл прогресса</button>' +
       '<button type="button" class="cs-tool" data-sync="import">Открыть файл прогресса</button></div></details>' +
@@ -196,8 +207,8 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
 
   async function handle(command) {
     if (command === 'sync') return synchronize();
-    if (command === 'back' || command === 'choose-folder' || (Object.hasOwn(providers, command) && !configured[command])) {
-      selected = command === 'back' ? null : command;
+    if (command === 'back' || command === 'folder-google' || command === 'folder-yandex') {
+      selected = command === 'back' ? null : command.slice('folder-'.length);
       settings.querySelector('.sync-transfer').open = Boolean(selected);
       message = '';
       controls();

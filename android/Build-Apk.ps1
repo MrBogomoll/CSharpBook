@@ -63,7 +63,8 @@ try {
     $arguments = @('--project-dir', $PSScriptRoot, "-PwebRoot=$WebRoot", "-PoutputDir=$job/build")
     if ($CloudConfig) {
         $cloudPath = (Resolve-Path -LiteralPath $CloudConfig).Path
-        $arguments += "-PcloudConfig=$cloudPath"
+        $configProperty = if ($Preview) { 'previewCloudConfig' } else { 'cloudConfig' }
+        $arguments += "-P$configProperty=$cloudPath"
     }
     $task = if ($Preview) { 'assemblePreview' } else { 'assembleRelease' }
     Run $gradle ($arguments + $task)
