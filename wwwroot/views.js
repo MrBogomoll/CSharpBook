@@ -66,7 +66,7 @@ function summaryOf(topic) {
 }
 const words = (count,one,few,many) => count%10===1 && count%100!==11 ? one : count%10>=2 && count%10<=4 && !(count%100>=12 && count%100<=14) ? few : many;
 function inlineCode(value,ownLine=false) {
-  if(!/^(?:dotnet|cd)\s+\S/.test(value))return '<code>'+esc(value)+'</code>';
+  if(!/^(?:dotnet|cd|wsl)\s+\S/.test(value))return '<code>'+esc(value)+'</code>';
   return button('copy-command','<code>'+esc(value)+'</code>'+icon('copy'),
     'lesson-command'+(ownLine?' command-line':''),'data-label="Копировать" aria-label="Скопировать команду '+esc(value)+'"');
 }
@@ -96,7 +96,7 @@ function homeView(lesson){
     }).join(''):'';
     return '<div class="cs-chapter-card">'+head+topics+'</div>';
   }).join('');
-  return '<div class="cs-home-intro"><h1><span>C#</span> с нуля</h1><p>Начни с первой программы, затем научись хранить данные и выбирать, что программа сделает дальше.</p></div><div class="cs-home-grid">'+resume+'<section class="cs-toc"><div class="cs-heading-row"><h2>Содержание</h2><small>'+chapters.length+' '+words(chapters.length,'тема','темы','тем')+' · '+lessons.length+' '+words(lessons.length,'глава','главы','глав')+'</small></div>'+rows+'</section></div>';
+  return '<div class="cs-home-intro"><h1><span>C#</span> с нуля</h1><p>Начни с первой программы, затем научись хранить данные и выбирать, что программа сделает дальше.</p></div><div class="cs-home-grid">'+resume+'<section class="cs-toc"><div class="cs-heading-row"><h2>Содержание</h2><small>'+chapters.length+' '+words(chapters.length,'тема','темы','тем')+' · '+lessons.length+' '+words(lessons.length,'глава','главы','глав')+'</small></div><details class="topic-index"><summary>Указатель тем</summary><div class="topic-index-body"></div></details>'+rows+'</section></div>';
 }
 function syntaxGuide(lesson, recap = false) {
   if (!lesson.syntaxGuide) return '';
@@ -122,6 +122,30 @@ function syntaxGuide(lesson, recap = false) {
     ? '<details class="syntax-guide guide-recap"><summary>Вспомнить синтаксис</summary>' + body + '</details>'
     : '<section class="syntax-guide cs-reading"><h2>Как устроена запись</h2>' + body + '</section>';
 }
+function desktopLabsView(lesson) {
+  return (lesson.desktopLabs || []).map(lab => {
+    const version = lab.version || lesson.version || 10;
+    const commands = lab.allowUnsafe ? ['dotnet build -p:AllowUnsafeBlocks=true', 'dotnet run --no-build'] : ['dotnet run'];
+    const files = Object.entries({'Program.cs': lab.code, ...lab.files}).map(([name,source]) =>
+      '<h4>' + esc(name) + '</h4>' + copyable(source)).join('');
+    return '<details class="desktop-lab cs-reading"><summary>Практика на ПК · ' + esc(lab.title) + '</summary><p>' +
+      formatText(lab.description) + '</p><p>Открой терминал в пустой папке. Для первого опыта создай консольный проект и перейди в его папку.</p>' +
+      inlineCode('dotnet new console -n SharpwiseLab -f net' + version + '.0',true) + inlineCode('cd SharpwiseLab',true) +
+      '<p>Сохрани код в указанных ниже файлах проекта.</p>' + files +
+      '<p>В этой же папке выполни ' + (commands.length === 1 ? 'команду запуска.' : 'команды по порядку.') + '</p>' +
+      commands.map(command => inlineCode(command,true)).join('') +
+      '<details><summary>Сверить вывод</summary><pre class="guide-output">' + esc(lab.output) + '</pre></details><ol>' +
+      lab.steps.map(step => '<li>' + formatText(step) + '</li>').join('') + '</ol></details>';
+  }).join('');
+}
+
+function lessonSources(lesson) {
+  return [lesson.source, ...(lesson.sources || [])].map(({url,label}) => {
+    const publisher = url.includes('learn.microsoft.com') ? 'Microsoft Learn' : url.includes('code.visualstudio.com') ? 'Visual Studio Code' : '';
+    const title = publisher && !label.startsWith(publisher) ? publisher + ' · ' + label : label;
+    return '<a class="cs-source" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(title) + '</a>';
+  }).join('');
+}
 function teach(lesson) {
   const steps=lesson.examples[state.example].steps, q=lesson.practice, a=store.get('answer/'+lesson.id,null);
   const answered=Number.isInteger(a);
@@ -133,7 +157,7 @@ function teach(lesson) {
     '<details><summary class="cursor-interaction">Частая ошибка</summary><p>Запись с ошибкой</p>'+snippet(lesson.mistake.wrong)+'<p>'+formatText(lesson.mistake.why)+'</p><p>Исправление</p>'+(lesson.id==='project-layout'?'<p>'+formatText(lesson.mistake.fix)+'</p>':snippet(lesson.mistake.fix))+'</details>'+
     '<h3>Проверь себя</h3><p>'+formatText(q.question)+'</p><div class="cs-answers" role="group" aria-label="Варианты ответа">'+q.choices.map((choice,i)=>button('answer:'+i,esc(choice),'cs-tool'+(i===a?' on':''),'aria-pressed="'+(i===a)+'"')).join('')+'</div><p class="cs-feedback" aria-live="polite">'+formatText(feedback)+'</p>'+
     '<details><summary class="cursor-interaction">Подсказка</summary><p>'+formatText(q.hint)+'</p></details>'+
-    '<a class="cs-source" href="'+esc(lesson.source.url)+'" target="_blank" rel="noopener noreferrer">'+(lesson.source.url.includes('learn.microsoft.com')?'Microsoft Learn':'Visual Studio Code')+' · '+esc(lesson.source.label.replace(/^Microsoft Learn · /,''))+'</a></section>';
+    lessonSources(lesson)+'</section>';
 }
 function lessonView(lesson) {
   const i=chapterIndex(lesson.id), read=state.read.includes(lesson.id), saved=state.saved.includes(lesson.id);
@@ -144,7 +168,7 @@ function lessonView(lesson) {
   return banner('Тема '+(i+1)+' · '+chapters[i].title+' · Глава '+(chapters[i].topics.indexOf(lesson)+1),lesson.title,lesson.intro,lesson.id==='variables')+controls+links+
     (lesson.id==='types'?typeGuide():'')+
     '<div class="cs-body">'+syntaxGuide(lesson)+theoryView(lesson.theory)+'<h2>'+esc(lesson.section)+'</h2><p class="cs-description">'+formatText(lesson.description)+'</p>'+
-    tabs(lesson)+exampleInput(lesson.examples[state.example])+editor(lesson)+(lesson.note?'<p class="lesson-note">'+formatText(lesson.note)+'</p>':'')+teach(lesson)+projectLink(lesson)+
+    tabs(lesson)+exampleInput(lesson.examples[state.example])+editor(lesson)+(lesson.note?'<p class="lesson-note">'+formatText(lesson.note)+'</p>':'')+teach(lesson)+desktopLabsView(lesson)+projectLink(lesson)+
     '<div class="cs-actions">'+button('go:home',icon('book-open')+'К оглавлению','cs-tool')+readButton+button('step:'+lesson.exercises[0].id,'К упражнениям'+icon('arrow-right'),'cs-flat cs-next')+'</div></div>';
 }
 function bookmarkedPage(lesson) {

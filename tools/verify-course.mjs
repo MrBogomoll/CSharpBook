@@ -41,6 +41,12 @@ for (const chapter of course) {
       if (!example.name || !example.steps?.length) throw new Error('No walkthrough: ' + topic.id);
       programs.push({ ...example, id: topic.id + '/' + (i + 1), version: example.version ?? topic.version ?? 10 });
     }
+    for (const [i, lab] of (topic.desktopLabs || []).entries()) {
+      if (!lab.title || !lab.description || !lab.code || typeof lab.output !== 'string' || !lab.steps?.length)
+        throw new Error('Incomplete desktop lab: ' + topic.id);
+      programs.push({...lab, id:topic.id + '/desktop-' + (i+1), version:lab.version ?? topic.version ?? 10,
+        desktopUnsafe:lab.allowUnsafe === true});
+    }
     const tasks=topic.exercises, keys=new Set();
     if(tasks.length<3||tasks.length>7||tasks[0].id!=='original')throw new Error('Invalid exercise count or legacy ID: '+topic.id);
     for(const task of tasks){
@@ -53,6 +59,19 @@ for (const chapter of course) {
     }
   }
 }
+const indexPath = new URL('../wwwroot/topic-index.json', import.meta.url);
+const topicIndex = JSON.parse(readFileSync(indexPath, 'utf8'));
+const indexModes = ['practice','walkthrough','desktop','reference'];
+for (const group of topicIndex) {
+  const labels = new Set();
+  if (!group.title || !group.topics?.length) throw new Error('Empty index group');
+  for (const [label,id,mode,note] of group.topics) {
+    if (!label || labels.has(label) || !ids.has(id) || !indexModes.includes(mode) || !note)
+      throw new Error('Invalid topic index entry: ' + label + ' (' + id + ')');
+    labels.add(label);
+  }
+}
+
 
 const extras = [
   ['while-loop/2', [], 'Готово'],
@@ -167,6 +186,7 @@ async function verify(program, index, base) {
   const quoted = value => '"' + value + '"';
   await fs.writeFile(join(directory, 'check.rsp'), [
     '/nologo', '/target:exe', '/nullable:enable', '/langversion:' + langVersion,
+    ...(program.desktopUnsafe ? ['/unsafe+'] : []),
     '/out:' + asm, ...refs.map(ref => '/reference:' + quoted(ref)), ...sources.map(quoted)
   ].join('\n'), 'utf8');
   const build = await run([csc, '/noconfig', '@check.rsp'], directory);
