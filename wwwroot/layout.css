@@ -62,6 +62,11 @@ a { color:var(--cs-violet); }
 #book .sample-input kbd { padding:2px 6px; border-radius:4px; background:var(--cs-hover); color:var(--cs-ink); }
 
 #book #book-cloud-sync .sync-actions { display:flex; flex-wrap:wrap; gap:8px; }
+#book #book-cloud-sync .sync-options { align-items:center; gap:8px 18px; }
+#book #book-cloud-sync .sync-options[hidden], #book .sync-options [hidden] { display:none; }
+#book .sync-options label { display:inline-flex; align-items:center; gap:6px; min-height:36px; cursor:pointer; }
+#book .sync-options select { padding:5px 7px; border:1px solid var(--cs-line); border-radius:6px; color:var(--cs-ink); background:var(--cs-nav); font:inherit; }
+#book .sync-options small { flex-basis:100%; color:var(--cs-weak); }
 #book #book-cloud-sync p:empty { display:none; }
 #book #book-cloud-sync button:disabled { opacity:.55; }
 #book #book-cloud-sync .sync-status { margin-top:8px; }

@@ -37,6 +37,7 @@ html {scrollbar-gutter:auto}
 #app:not(.has-dock):has(.cx-console.is-fullscreen) > :is(#book-header,#book-bottom),
 #book-console:has(.cx-console.is-fullscreen) > .dock-toolbar {display:none}
 #editor-host > .cs-console-page:has(> .cx-console.is-fullscreen) {height:100%;max-width:none}
+#app:is(.has-dock,.secondary-pane) {--console-top-inset:2px}
 .dock-toolbar,#dock-tabs,.dock-tab {display:flex;align-items:center;min-width:0}
 .dock-toolbar {flex-shrink:0;gap:4px;border-bottom:1px solid var(--cs-line);background:var(--cs-nav);padding:4px 10px}
 #dock-tabs {flex:1;overflow-x:auto;overflow-y:hidden;gap:5px;overscroll-behavior-x:contain}

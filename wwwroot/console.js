@@ -1,6 +1,7 @@
 import {releaseCompletionEngine} from './editor/completion.js';
 import {startRun} from './runner.js';
 import {createCodeEditor} from './editor/code-editor.js';
+import {arrangeConsoleOutput} from './editor/output-layout.js';
 
 const mainFile = 'Program.cs';
 const html = value => String(value ?? '').replace(/[&<>"']/g, c =>
@@ -64,6 +65,7 @@ export function mountConsole(container, options = {}) {
   cleanup.updateFiles = draft => dispose?.updateFiles(draft);
   cleanup.setTitle = name => dispose?.setTitle(name);
   cleanup.exitFullscreen = () => dispose?.exitFullscreen();
+  cleanup.restoreOutputLayout = value => dispose?.restoreOutputLayout(value);
   cleanup.openExample = example => {
     cleanup();
     dispose = mountConsolePage(container,{onBack:options.onBack, onChange:options.onChange, showHeader:options.showHeader, ...example});
@@ -74,7 +76,7 @@ export function mountConsole(container, options = {}) {
 
 function mountConsolePage(container, {
   source = '', version = 10, files = {}, topicTitle = '', exampleTitle = '', title = exampleTitle,
-  initial = {source, files}, onBack, onChange, showHeader = true
+  initial = {source, files}, outputLayout, onOutputLayoutChange, onBack, onChange, showHeader = true
 } = {}) {
   function projectFiles({source,files}) {
     const project = new Map([[mainFile, String(source).replace(/\r\n?/g,'\n')]]);
@@ -95,6 +97,8 @@ function mountConsolePage(container, {
     '<div class="cx-content"><div class="cx-head"><div>' + '<div class="cx-crumb"' + (trail(title) ? '' : ' hidden') + '>' + html(trail(title)) + '</div>' +
     '<h1>Консоль</h1></div>' + (showHeader ? '' : back) + '</div>' +
     '<div class="cx-grid"><section class="cx-editor" aria-label="Редактор C#"><div class="cx-filebar"><div class="cx-files"></div>' +
+    '<button type="button" class="cx-output-toggle" data-action="toggle-result" aria-label="Скрыть вывод" title="Скрыть вывод" aria-expanded="true">' +
+    icon('panel-right-close') + icon('panel-right-open') + '</button>' +
     button('copy','Копировать','copy','cx-copy') +
     '<button type="button" class="cx-fullscreen" data-action="toggle-fullscreen" aria-label="Развернуть консоль" title="Развернуть консоль" aria-pressed="false">' +
     icon('maximize-2') + icon('minimize-2') + '</button></div><div class="cx-codeview"></div>' +
@@ -103,6 +107,7 @@ function mountConsolePage(container, {
     button('stop','Остановить','square','cx-stop','aria-label="Остановить" title="Остановить" hidden') +
     button('reset-console','Сбросить консоль','rotate-ccw','cx-clear','aria-label="Сбросить консоль" title="Сбросить консоль и вернуть исходный код"') +
     '</div><span class="cx-editor-note">.NET ' + html(version) + '</span></div></section>' +
+    '<div class="cx-output-divider" role="separator" tabindex="0" aria-label="Размер редактора и вывода" aria-valuemin="15" aria-valuemax="85"></div>' +
     '<section class="cx-terminal" aria-label="Результат запуска"><div class="cx-termbar"><span class="cx-termname">' +
     icon('terminal') + 'Результат</span><span class="cx-term-status" role="status"></span>' +
     '</div>' +
@@ -113,6 +118,7 @@ function mountConsolePage(container, {
   const $ = selector => page.querySelector(selector);
   const controller = new AbortController();
   const {signal} = controller;
+  const outputPanel = arrangeConsoleOutput(page, {initial:outputLayout,onChange:onOutputLayoutChange,signal});
   const icons = () => globalThis.lucide?.createIcons?.({root: page, attrs: {width:16,height:16}});
   let current = mainFile, phase = 'idle', output = '', errors = [], snapshot = null, expanded = false;
   let active = null, serial = 0, busy = false, frame = 0, refreshPending = false;
@@ -134,6 +140,9 @@ function mountConsolePage(container, {
   }
   fullscreenButton.addEventListener('pointerdown',event => {
     if (host.contains(document.activeElement) || document.activeElement === lineInput) event.preventDefault();
+  },{signal});
+  $('.cx-output-toggle').addEventListener('pointerdown',event => {
+    if (host.contains(document.activeElement)) event.preventDefault();
   },{signal});
   page.addEventListener('keydown',event => {
     if (event.key === 'Escape' && !event.isComposing && page.classList.contains('is-fullscreen') && $('.cx-completions').hidden) {
@@ -259,7 +268,7 @@ function mountConsolePage(container, {
     const code = codeFiles.get(current);
     const target = editTarget(code);
     editor.mark(localIssue ? {line:localIssue.line,col:localIssue.col || 1,error:true} : target);
-    host.style.setProperty('--cx-lines', Math.max(5, Math.min(14,code.split('\n').length)));
+    page.style.setProperty('--cx-lines', Math.max(5, Math.min(14,code.split('\n').length)));
     const fixable = first && first.code === 'CS1002' && position(first);
     let content;
     if (first) {
@@ -292,7 +301,7 @@ function mountConsolePage(container, {
         if (!frame) frame = requestAnimationFrame(() => { renderOutput(); refresh(); });
         return;
       case 'ready': phase = 'running'; break;
-      case 'input': phase = 'input'; break;
+      case 'input': phase = 'input'; outputPanel.revealForInput(); break;
       case 'error': errors.push(event); phase = 'error'; break;
       case 'done': busy = false; active = null; phase = errors.length ? 'error' : 'ok'; break;
       default: return;
@@ -415,6 +424,10 @@ function mountConsolePage(container, {
     page.remove();
   }
   cleanup.exitFullscreen = () => setFullscreen(false);
+  cleanup.restoreOutputLayout = value => {
+    outputPanel.restore(value);
+    if (phase === 'input' && busy) outputPanel.revealForInput();
+  };
   function replaceProject(next, nextFile) {
     codeFiles.clear();
     for (const [name, text] of next) {

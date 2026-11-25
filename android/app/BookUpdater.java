@@ -16,6 +16,7 @@ import java.util.*;
 
 final class BookUpdater {
     static final int PERMISSION = 723, INSTALL = 724;
+    static final String PREFS = "updater", INSTALL_TASK = "installTask";
     static final String REPO = "https://github.com/MrBogomoll/Sharpwise";
     private static final String LATEST = "https://api.github.com/repos/MrBogomoll/Sharpwise/releases/latest";
     private final BookActivity activity;
@@ -25,7 +26,7 @@ final class BookUpdater {
 
     BookUpdater(BookActivity activity) {
         this.activity = activity;
-        prefs = activity.getSharedPreferences("updater", Context.MODE_PRIVATE);
+        prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         try {
             PackageInfo installed = installed();
             if (installed.versionName.equals(prefs.getString("version", ""))) {
@@ -120,7 +121,7 @@ final class BookUpdater {
             } finally { conn.disconnect(); }
             validate(temp, version);
             java.nio.file.Files.move(temp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            if (!prefs.edit().putString("version", version).putString("digest", digest).putLong("size", size).commit())
+            if (!prefs.edit().remove(INSTALL_TASK).putString("version", version).putString("digest", digest).putLong("size", size).commit())
                 throw new IOException("Не удалось сохранить сведения об обновлении.");
         } finally { temp.delete(); }
     }
@@ -219,17 +220,27 @@ final class BookUpdater {
     private void launchInstaller() {
         try {
             Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE).setData(UpdateFile.URI)
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).putExtra(Intent.EXTRA_RETURN_RESULT, true);
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             intent.setClipData(ClipData.newRawUri("CSharpBook.apk", UpdateFile.URI));
+            // Keep the installer's "Open" action available if Android closes our task.
+            if (!prefs.edit().putInt(INSTALL_TASK, activity.getTaskId()).commit()) {
+                state("Не удалось сохранить состояние установки. Попробуй ещё раз.", false);
+                return;
+            }
             state("Подтверди обновление в окне Android.", true);
             activity.startActivityForResult(intent, INSTALL);
-        } catch (RuntimeException error) { state("Не удалось открыть установщик Android.", false); }
+        } catch (RuntimeException error) {
+            prefs.edit().remove(INSTALL_TASK).apply();
+            state("Не удалось открыть установщик Android.", false);
+        }
     }
     void result(int request, int result) {
         if (request == INSTALL) {
             String version = prefs.getString("version", "");
-            state(result == Activity.RESULT_OK ? "Стабильная версия " + version + " установлена." : "Установка отменена или отклонена Android. Можно попробовать ещё раз.", false);
             activity.revokeUriPermission(UpdateFile.URI, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            // onCreate may already have recognized the new version and cleared the receipt.
+            if (version.isEmpty()) return;
+            state(BuildConfig.VERSION_NAME.equals(version) ? "Версия " + version + " установлена." : "Установка не завершена. Можно попробовать ещё раз.", false);
             prefs.edit().clear().apply(); UpdateFile.file(activity).delete();
         } else if (request == PERMISSION) {
             if (!activity.getPackageManager().canRequestPackageInstalls()) { state("Разрешение на установку не получено.", false); return; }
