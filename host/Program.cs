@@ -128,6 +128,24 @@ internal static class Program
             };
         }
         private static bool Local(string url) => Uri.TryCreate(url,UriKind.Absolute,out var u) && u.GetLeftPart(UriPartial.Authority)==LocalUrl;
+        private bool ConfirmDownload(ReleaseAsset release)
+        {
+            var download = new TaskDialogButton("Скачать");
+            var cancel = new TaskDialogButton("Отмена");
+            var culture = System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+            string size = release.Size < 1_000_000
+                ? release.Size.ToString("N0", culture) + " Б"
+                : (release.Size / 1_000_000d).ToString("0.#", culture) + " МБ";
+            string details = $"Sharpwise {release.Version} · {size}";
+            if (ReleaseUpdate.IsPreview)
+                details += $"\nСтабильный выпуск заменит тестовую сборку {ReleaseUpdate.DisplayVersion}. В более раннем выпуске может быть меньше функций.";
+            var question = new TaskDialogPage
+            {
+                Caption = "Обновление Sharpwise", Heading = "Скачать обновление?", Text = details,
+                Buttons = { cancel, download }, DefaultButton = cancel, AllowCancel = true
+            };
+            return TaskDialog.ShowDialog(this, question) == download;
+        }
         private async Task UpdateBook()
         {
             if (updating) return;
@@ -141,18 +159,16 @@ internal static class Program
             try
             {
                 Status("Проверяем последний выпуск…");
+                var release = await ReleaseUpdate.Latest(closing.Token);
+                if (closing.IsCancellationRequested) return;
+                if (release == null) { Status("У тебя последняя версия.", false); return; }
+                Status($"Доступна версия {release.Version}.");
+                if (!ConfirmDownload(release))
+                {
+                    Status("Загрузка отменена.", false); return;
+                }
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(closing.Token);
                 timeout.CancelAfter(TimeSpan.FromMinutes(10));
-                var release = await ReleaseUpdate.Latest(timeout.Token);
-                if (release == null) { Status("У тебя последняя версия.", false); return; }
-                if (ReleaseUpdate.IsPreview && MessageBox.Show(this,
-                    $"Тестовая сборка {ReleaseUpdate.DisplayVersion} будет заменена стабильной версией {release.Version}. " +
-                    "У более раннего выпуска может быть меньше функций. Перейти на стабильную версию?",
-                    "Переход на стабильную версию", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
-                    MessageBoxDefaultButton.Button2) != DialogResult.Yes)
-                {
-                    Status("Переход отменён.", false); return;
-                }
                 stage = ReleaseUpdate.CreateStage(AppContext.BaseDirectory);
                 string zip = Path.Combine(stage, "release.zip");
                 Status($"Скачиваем версию {release.Version}…");
