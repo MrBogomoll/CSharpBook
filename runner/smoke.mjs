@@ -36,8 +36,14 @@ try {
     const until=async expression=>{for(let i=0;i<240;i++){if(await evaluate(expression))return;await wait(100);}throw Error('UI condition timed out: '+expression+'; '+await evaluate('document.body.innerText.slice(-700)'));};
     await evaluate('location.hash="#lesson/modern-15-unions"');
     await until('!!document.querySelector("[data-action=open-example]")');
+    const template=await evaluate('defaultEditor(findLesson(state.lesson)).source');
+    await evaluate('store.set("editor/"+state.lesson+"/"+state.example,{source:"// сохранённый черновик",files:{}})');
     await evaluate('document.querySelector("[data-action=open-example]").click()');
     await until('!!document.querySelector(".cm-content")');
+    assert.equal(await evaluate('document.querySelector(".cm-content").innerText'),'// сохранённый черновик');
+    await evaluate('document.querySelector("[data-action=reset-console]").click()');
+    assert.equal(await evaluate('store.get("console").source'),template);
+    assert.equal(await evaluate('Array.from(document.querySelectorAll(".cm-content .cm-line"),line=>line.textContent).join("\\n")'),template);
     await evaluate('document.querySelector(".cm-content").focus()');
     await call('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',modifiers:2,windowsVirtualKeyCode:65});
     await call('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA',modifiers:2,windowsVirtualKeyCode:65});
@@ -51,6 +57,10 @@ try {
     await evaluate('document.querySelector(".cx-send").click()');
     await until('document.querySelector(".cx-stop")?.hidden === true && document.querySelector(".cx-out").innerText.includes("Привет, Кира")');
     console.log('Edited C# 15 program through CodeMirror, Run button, real ReadLine and Send button',await evaluate('document.querySelector(".cx-out").innerText'));
+    await evaluate('document.querySelector("[data-action=reset-console]").click()');
+    assert.equal(await evaluate('document.querySelector(".cx-out").textContent'),'');
+    assert.equal(await evaluate('document.querySelector(".cx-term-status").textContent'),'Готово к запуску');
+    assert.equal(await evaluate('store.get("console").source'),template);
     await evaluate('go("lesson","read-line","challenge-2")');
     await until('!!document.querySelector("[data-action=run-custom]")');
     const checkCode=async expression=>{
@@ -66,6 +76,9 @@ try {
     await evaluate('document.querySelector(".cs-content .solved-tasks").open=true');
     await until('!!document.querySelector(\'.cs-content a[href="#lesson/read-line/challenge-2"]\')');
     console.log('Only a solution that passed alternate inputs appeared in the chapter list.');
+    await evaluate('document.querySelector("[data-action=reset-draft]").click()');
+    assert.ok(await evaluate('document.querySelector(".cs-draft").value === activeTask().starter'));
+    assert.ok(await evaluate('exerciseDone(findLesson("read-line"),activeTask())'));
   }
   const tests=[
     {name:'hello10',version:10,source:'Console.WriteLine("Привет!"); Console.WriteLine(Environment.Version.Major);',out:'Привет!\n10\n'},

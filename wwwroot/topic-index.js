@@ -3,6 +3,13 @@ const topicIndexModes = {
   practice: 'Практика', walkthrough: 'Разбор', desktop: 'На ПК', reference: 'Справка'
 };
 
+function loadTopicIndex() {
+  return topicIndexRequest ??= fetch('topic-index.json').then(response => {
+    if (!response.ok) throw new Error('index unavailable');
+    return response.json();
+  }).catch(error => { topicIndexRequest = undefined; throw error; });
+}
+
 function mountTopicIndex(host) {
   const body = host.querySelector('.topic-index-body');
   host.addEventListener('toggle', async () => {
@@ -10,11 +17,7 @@ function mountTopicIndex(host) {
     body.dataset.state = 'loading';
     body.textContent = 'Открываем указатель…';
     try {
-      topicIndexRequest ??= fetch('topic-index.json').then(response => {
-        if (!response.ok) throw new Error('index unavailable');
-        return response.json();
-      }).catch(error => { topicIndexRequest = undefined; throw error; });
-      const groups = await topicIndexRequest;
+      const groups = await loadTopicIndex();
       if (!host.isConnected) return;
       body.innerHTML = '<label>Найти тему или термин<input type="search" placeholder="Например, кавычки или XPath"></label>' +
         '<p class="index-status" role="status"></p><div class="index-groups"></div>';

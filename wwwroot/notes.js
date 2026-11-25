@@ -148,7 +148,7 @@ function openNoteMenu(target,x,y,event) {
     if(passage.matches('.cs-code-area pre code'))menuItem('Открыть код рядом',()=>useExample(true));
     else if(passage.matches('.cs-snippet'))menuItem('Открыть код рядом',()=>{
       const lesson=findLesson(state.lesson);
-      openBeside({key:'snippet/'+lesson.id+'/'+context.anchor,source:passage.textContent,files:{},version:lesson.version||10,topicId:lesson.id,topicTitle:lesson.title,exampleTitle:'Фрагмент кода'});
+      openBeside({key:'snippet/'+context.route.slice('lesson/'.length)+'/'+context.anchor,source:passage.textContent,files:{},version:lesson.version||10,topicId:lesson.id,topicTitle:lesson.title,exampleTitle:'Фрагмент кода'});
     });
   }
   const ids=topic?[topic.dataset.action.slice(7)]:chapter?chapters[Number(chapter.dataset.action.split(':')[1])]?.topics.map(t=>t.id):

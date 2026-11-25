@@ -61,7 +61,7 @@ function createWorkspace() {
     if(saved){
       const unscoped=key.replace(/^secondary\//,'');
       const lesson=findLesson(unscoped.split('/')[1]);
-      addConsole({...saved, key:unscoped, storageKey:key, version:lesson?.version||10, topicId:lesson?.id||state.lesson,
+      addConsole({...saved, key:unscoped, storageKey:key, version:lesson?.version||10, topicId:lesson?.id,
         topicTitle:lesson?.title||'',exampleTitle:describeSyncKey(key)});
     }
     storedPrograms.selectedIndex=0;
@@ -169,11 +169,44 @@ function closeConsole(key) {
   }
   rememberTabs();paintConsoleTabs();
 }
+// Older saved tabs contain only the edited text. Recover their template from
+// the course before applying the draft, including tabs opened in the other pane.
+function consoleTemplate(entry,storageKey) {
+  const [kind,id,...parts]=storageKey.replace(/^secondary\//,'').split('/');
+  if(kind==='scratch')return {source:'',files:{}};
+  const lesson=findLesson(id==='general'?entry.topicId:id);
+  if(kind==='editor' && lesson){
+    const example=id==='general'?lesson.examples.find(e=>e.name===entry.exampleTitle):lesson.examples[Number(parts[0])];
+    if(example)return {source:example.code,files:example.files||{}};
+  }
+  if(kind==='snippet' && lesson){
+    const task=lesson.exercises.find(item=>item.id===parts[0]);
+    const anchor=(task?parts.slice(1):parts).join('/');
+    if(anchor==='syntax-guide' && lesson.syntaxGuide)return {source:lesson.syntaxGuide.sample,files:lesson.syntaxGuide.files||{}};
+    if(entry.initial && typeof entry.initial.source==='string')return entry.initial;
+    // Versions through 0.4.1 stored exercise snippets under a chapter-wide
+    // anchor. Recover a source only when the remaining evidence identifies it.
+    const candidates=(task?[task]:lesson.exercises).map(exercise=>
+      anchor==='solution'?exercise.solution:anchor==='expected-output'?exercise.output:
+      anchor.startsWith('source/')?exercise.files?.[anchor.slice(7)]:undefined);
+    const originals=[...new Set(candidates.filter(source=>typeof source==='string'))];
+    const matches=originals.filter(source=>source && entry.source?.includes(source));
+    if(originals.length===1 || matches.length===1)return {source:originals.length===1?originals[0]:matches[0],files:{}};
+    if(anchor.startsWith('p-')){
+      const source=[lesson.mistake?.wrong,lesson.mistake?.fix,...lesson.examples.map(e=>e.output)].find(
+        text=>typeof text==='string' && anchor.startsWith(passageHash(text)+'-'));
+      if(source!==undefined)return {source,files:{}};
+    }
+  }
+  return typeof entry.initial?.source==='string'?entry.initial:{source:entry.source,files:entry.files||{}};
+}
 function addConsole(entry) {
   const storageKey=entry.storageKey||store.scoped(entry.key);
   const key=storageKey===store.scoped(storageKey.replace(/^secondary\//,''))?storageKey.replace(/^secondary\//,''):'linked/'+storageKey;
-  entry={...entry,...store.values.get(storageKey),key,storageKey};
   if(consoleTabs.has(key)){selectConsole(key);return;}
+  const draft=store.values.get(storageKey);
+  const initial=consoleTemplate({...entry,initial:entry.initial||draft?.initial},storageKey);
+  entry={...entry,...draft,key,storageKey,initial};
   const host=document.createElement('div');host.className='cs-console-page';
   consolePages.append(host);
   const tab={host,entry,cleanup:null};consoleTabs.set(key,tab);store.set('tab/'+key,entry);
@@ -182,7 +215,10 @@ function addConsole(entry) {
     if(consoleTabs.get(key)!==tab)return;
     tab.cleanup=mountConsole(host,{...tab.entry,showHeader:false,onBack:resumeReading,onChange:(source,files)=>{
       tab.entry={...tab.entry,source,files};
-      BookStore.prototype.set.call(store,storageKey,{source,files});store.set('tab/'+key,tab.entry);
+      const saved={source,files};
+      // Freely selected passages and the general console lack a unique example index.
+      if(/^(secondary\/)?(snippet\/|editor\/general$)/.test(storageKey))saved.initial=initial;
+      BookStore.prototype.set.call(store,storageKey,saved);store.set('tab/'+key,tab.entry);
       if(activeConsole===key)store.set('console',tab.entry);
     }});
   }).catch(e=>{host.textContent='Не удалось открыть консоль. '+e.message;});
@@ -274,7 +310,7 @@ function secondaryReady(frameWindow) {
 }
 function openConsoleEntry(entry) {
   if(!consoleTabs.size && store.get('console',null))ensureConsole();
-  addConsole({...entry,...store.get(entry.key,{}),key:entry.key});go('console');
+  addConsole({...entry,initial:{source:entry.source,files:entry.files||{}}});go('console');
 }
 function openBeside(entry) {
   if(secondaryPane){parent.openConsoleEntry(entry);return;}

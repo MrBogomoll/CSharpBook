@@ -13,7 +13,7 @@ const statuses = {
   idle: ['Готово к запуску','circle'], loading: ['Подготовка','loader-circle'],
   running: ['Выполняется','play'], input: ['Ожидание ввода','keyboard'],
   ok: ['Выполнено','circle-check'], error: ['Ошибка','circle-alert'],
-  stopped: ['Остановлено','square'], stale: ['Код изменён','pencil'], cleared: ['Вывод очищен','eraser']
+  stopped: ['Остановлено','square'], stale: ['Код изменён','pencil']
 };
 const hints = {
   CS0246: 'Проверь имя типа и регистр букв. Для типа из библиотеки может понадобиться директива using с именем пространства имён.',
@@ -72,12 +72,17 @@ export function mountConsole(container, options = {}) {
 
 function mountConsolePage(container, {
   source = '', version = 10, files = {}, topicTitle = '', exampleTitle = '',
-  onBack, onChange, showHeader = true
+  initial = {source, files}, onBack, onChange, showHeader = true
 } = {}) {
-  const codeFiles = new Map([[mainFile, String(source).replace(/\r\n?/g,'\n')]]);
-  for (const [name, text] of Object.entries(files || {})) {
-    if (name !== mainFile && typeof text === 'string') codeFiles.set(name, text.replace(/\r\n?/g,'\n'));
+  function projectFiles({source,files}) {
+    const project = new Map([[mainFile, String(source).replace(/\r\n?/g,'\n')]]);
+    for (const [name, text] of Object.entries(files || {})) {
+      if (name !== mainFile && typeof text === 'string') project.set(name, text.replace(/\r\n?/g,'\n'));
+    }
+    return project;
   }
+  const codeFiles = projectFiles({source,files});
+  const original = projectFiles(initial);
   const extraFiles = () => Object.fromEntries([...codeFiles].filter(([name]) => name !== mainFile));
   const page = document.createElement('div');
   page.className = 'cx-console';
@@ -91,10 +96,11 @@ function mountConsolePage(container, {
     button('copy','Копировать','copy','cx-copy') + '</div><div class="cx-codeview"></div>' +
     '<div class="cx-completions" aria-label="Подсказки ввода" hidden></div><div class="cx-editor-foot"><div class="cx-controls">' +
     button('run','Запустить','play','cx-run') + button('stop','Остановить','square','cx-stop','hidden') +
+    button('reset-console','Сбросить консоль','rotate-ccw','cx-clear','title="Вернуть исходный код и очистить результат"') +
     '</div><span class="cx-editor-note">.NET ' + html(version) + '</span></div></section>' +
     '<section class="cx-terminal" aria-label="Результат запуска"><div class="cx-termbar"><span class="cx-termname">' +
     icon('terminal') + 'Результат</span><span class="cx-term-status" role="status"></span>' +
-    button('clear-output','Очистить вывод','eraser','cx-clear','disabled') + '</div>' +
+    '</div>' +
     '<div class="cx-result"><p class="cx-idle"></p><pre class="cx-out" aria-label="Вывод программы" hidden></pre>' +
     '<div class="cx-errors"></div></div><form class="cx-stdin" hidden><label>Введи строку<input name="line" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>' +
     '<button class="cx-send" type="submit">Отправить</button></form></section></div><div class="cx-help"></div></div></div>';
@@ -105,7 +111,6 @@ function mountConsolePage(container, {
   const icons = () => globalThis.lucide?.createIcons?.({root: page, attrs: {width:16,height:16}});
   let current = mainFile, phase = 'idle', output = '', errors = [], snapshot = null, expanded = false;
   let active = null, serial = 0, busy = false, frame = 0, refreshPending = false;
-  let cleared = false;
   let tutorMarkup = '', diagMarkup = '', lastStatus = '';
   const fileMenu = $('.cx-files'), help = $('.cx-help'), result = $('.cx-result');
   const inputForm = $('.cx-stdin'), lineInput = inputForm.elements.line;
@@ -194,7 +199,6 @@ function mountConsolePage(container, {
     note.hidden = !note.textContent || (!!output && !['stale','stopped'].includes(status));
     $('.cx-run').disabled = busy;
     $('.cx-stop').hidden = !busy;
-    $('.cx-clear').disabled = !output && !errors.length;
     inputForm.hidden = phase !== 'input' || !busy;
     if (!inputForm.hidden) lineInput.disabled = false;
     const visibleErrors = stale ? [] : errors;
@@ -245,13 +249,12 @@ function mountConsolePage(container, {
     switch (event.type) {
       case 'output':
         output += String(event.text ?? '');
-        if (output) cleared = false;
         if (!frame) frame = requestAnimationFrame(() => { renderOutput(); refresh(); });
         return;
       case 'ready': phase = 'running'; break;
       case 'input': phase = 'input'; break;
-      case 'error': errors.push(event); cleared = false; phase = 'error'; break;
-      case 'done': busy = false; active = null; phase = errors.length ? 'error' : cleared ? 'cleared' : 'ok'; break;
+      case 'error': errors.push(event); phase = 'error'; break;
+      case 'done': busy = false; active = null; phase = errors.length ? 'error' : 'ok'; break;
       default: return;
     }
     renderOutput();
@@ -261,7 +264,7 @@ function mountConsolePage(container, {
   async function run() {
     if (busy || signal.aborted) return;
     const id = ++serial;
-    busy = true; phase = 'loading'; errors = []; output = ''; cleared = false; expanded = false;
+    busy = true; phase = 'loading'; errors = []; output = ''; expanded = false;
     snapshot = new Map(codeFiles);
     lineInput.value = '';
     editor.close(); releaseCompletionEngine(); renderOutput(); refresh();
@@ -310,12 +313,16 @@ function mountConsolePage(container, {
       case 'back': onBack?.(); break;
       case 'run': run(); break;
       case 'stop': stop(); break;
-      case 'clear-output':
-        output = ''; errors = []; expanded = false; cleared = true;
-        if (!busy) { phase = 'cleared'; snapshot = null; }
-        renderOutput(); refresh();
-        if (busy && phase === 'input') lineInput.focus({preventScroll:true});
+      case 'reset-console': {
+        stop();
+        const changed = codeFiles.size !== original.size || [...original].some(([name,text]) => codeFiles.get(name) !== text);
+        output = ''; errors = []; expanded = false; phase = 'idle'; snapshot = null;
+        lineInput.value = '';
+        replaceProject(original,mainFile);
+        if (changed) onChange?.(codeFiles.get(mainFile),extraFiles());
+        resetCopyButton(); renderOutput(); refresh(); editor.close();
         break;
+      }
       case 'complete': editor.suggestExample(); break;
       case 'copy': {
         const code = codeFiles.get(current);
@@ -364,18 +371,18 @@ function mountConsolePage(container, {
     editor.destroy();
     page.remove();
   }
-  cleanup.updateFiles = draft => {
-    const next = new Map([[mainFile, draft.source], ...Object.entries(draft.files)]);
-    if (!next.has(current)) {
-      current = mainFile;
-      editor.switchFile(current, next.get(current));
-    }
+  function replaceProject(next, nextFile) {
     codeFiles.clear();
     for (const [name, text] of next) {
       codeFiles.set(name, text);
       editor.updateFile(name, text);
     }
+    current = next.has(nextFile) ? nextFile : mainFile;
+    editor.switchFile(current, next.get(current));
     drawFiles();
+  }
+  cleanup.updateFiles = draft => {
+    replaceProject(projectFiles(draft),current);
     scheduleRefresh();
   };
   return cleanup;
