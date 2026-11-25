@@ -84,7 +84,10 @@ function formatText(value) {
   }
   return result+esc(source.slice(start));
 }
-function homeView(lesson){
+function homeView(){
+  return '<main class="cs-home"><div class="cs-home-intro"><h1><span>C#</span> с нуля</h1><p>Начни с первой программы, затем научись хранить данные и выбирать, что программа сделает дальше.</p></div>'+courseSearchForm()+'<div class="cs-home-grid"></div></main>';
+}
+function homeCatalogue(lesson){
   const intro=readingChapter();
   const resumeTask=lesson.exercises.find(t=>t.id===lastReading.split('/')[2]);
   const resume='<aside class="cs-progress-column" aria-label="Продолжение обучения"><div class="cs-resume"><span class="cs-kicker">'+icon('book-open')+(intro?'Введение в тему':resumeTask?'Текущее упражнение':'Текущая глава')+'</span><h2>'+esc(intro?.title||resumeTask?.title||lesson.title)+'</h2><p>'+esc(intro?'Сначала разберём основные понятия темы.':resumeTask?lesson.title:summaryOf(lesson))+'</p>'+(intro||resumeTask?'':'<code class="cs-resume-code">'+syntax(lesson.examples[state.example].code.split('\n')[0])+'</code>')+button('back',(state.started?'Продолжить':'Начать обучение')+icon('arrow-right'),'cs-continue')+'</div><div class="cs-resume-progress"><div><span>Прочитано глав</span><strong>'+state.read.length+' из '+lessons.length+'</strong></div><div class="cs-progress-track"><i style="width:'+100*state.read.length/lessons.length+'%"></i></div></div></aside>';
@@ -102,7 +105,7 @@ function homeView(lesson){
     }).join(''):'';
     return '<div class="cs-chapter-card">'+head+topics+'</div>';
   }).join('');
-  return '<div class="cs-home-intro"><h1><span>C#</span> с нуля</h1><p>Начни с первой программы, затем научись хранить данные и выбирать, что программа сделает дальше.</p></div>'+courseSearchForm()+'<div class="cs-home-grid">'+resume+'<section class="cs-toc"><div class="cs-heading-row"><h2>Содержание</h2><small>'+chapters.length+' '+words(chapters.length,'тема','темы','тем')+' · '+lessons.length+' '+words(lessons.length,'глава','главы','глав')+'</small></div>'+solvedList('course')+'<details class="topic-index"><summary>Указатель тем</summary><div class="topic-index-body"></div></details>'+rows+'</section></div>';
+  return resume+'<section class="cs-toc"><div class="cs-heading-row"><h2>Содержание</h2><small>'+chapters.length+' '+words(chapters.length,'тема','темы','тем')+' · '+lessons.length+' '+words(lessons.length,'глава','главы','глав')+'</small></div>'+solvedList('course')+'<details class="topic-index"><summary>Указатель тем</summary><div class="topic-index-body"></div></details>'+rows+'</section>';
 }
 function syntaxGuide(lesson, recap = false) {
   if (!lesson.syntaxGuide) return '';

@@ -36,7 +36,7 @@ function createWorkspace() {
     window.addEventListener('pagehide',()=>parent.removeEventListener('resize',syncWidth),{once:true});
   }
   root.innerHTML='<div id="book-header"></div><nav id="book-contents" aria-label="Содержание" hidden></nav><div id="book-workspace"><div id="book-left"><div id="book-primary"><div id="reader-view" hidden></div><div id="aux-view"></div></div>'+
-    '<section id="book-console" aria-label="Консоль" hidden><div class="dock-toolbar"><div id="dock-tabs" aria-label="Открытые программы"></div>'+
+    '<section id="book-console" aria-label="Консоль" hidden>'+courseSearchButton('fullscreen-search')+'<div class="dock-toolbar"><div id="dock-tabs" aria-label="Открытые программы"></div>'+
     '<button type="button" id="stored-programs" class="dock-icon" aria-label="Черновики программ" title="Черновики программ" aria-haspopup="dialog">'+icon('folder-open')+'</button>'+
     button('new-console',icon('plus'),'dock-icon','aria-label="Новая консоль" title="Новая консоль"')+'</div><div id="editor-host"></div></section></div>'+
     '<div id="book-divider" role="separator" tabindex="0" aria-label="Размер панелей" aria-controls="book-left book-dock" aria-valuemin="25" aria-valuemax="75" hidden></div>'+
@@ -57,6 +57,7 @@ function createWorkspace() {
   consolePanel=root.querySelector('#book-console');
   dockTabs=root.querySelector('#dock-tabs');consolePages=root.querySelector('#editor-host');
   updateReaderScrollbar=addPageScrollbar(primary, 'Прокрутка страницы');
+  new ResizeObserver(revealCourseSearch).observe(primary);
   updateConsoleScrollbar=addPageScrollbar(consolePages, 'Прокрутка страницы консоли');
   new ResizeObserver(revealActiveConsoleTab).observe(dockTabs);
   draftManager=createDraftManager(root.querySelector('#stored-programs'),{
@@ -367,8 +368,8 @@ function newConsole() {
   addConsole({key:'scratch/'+number+'/'+identity,source:'',files:{},version:10,topicId:state.lesson,topicTitle:'',exampleTitle:title});
 }
 function contentsButton(css) {
-  return button('menu',icon('menu')+icon('x')+'Содержание',css,
-    'id="book-contents-button" aria-controls="book-contents" aria-expanded="'+!contentsPanel.hidden+'"');
+  return button('menu',icon('menu')+icon('x')+'<span>Содержание</span>',css,
+    'id="book-contents-button" aria-label="Содержание" title="Содержание" aria-controls="book-contents" aria-expanded="'+!contentsPanel.hidden+'"');
 }
 function dismissContentsOutside(event) {
   if(!contentsPanel.hidden&&!event.target.closest('#book-contents,#book-contents-button'))closeContents();
@@ -417,10 +418,10 @@ function secondaryHeader(reading) {
   const current=reading?'reader':state.page;
   const options=paneSections.map(([key,title])=>'<option value="'+key+'"'+(key===current?' selected':'')+'>'+title+'</option>').join('');
   return '<header class="pane-header"><select id="pane-section-select" aria-label="Раздел второй панели">'+options+'</select>'+
-    (reading?contentsButton('pane-chapters'):'')+'</header>';
+    (reading?contentsButton('pane-chapters'):'')+courseSearchButton()+'</header>';
 }
 function choosePaneView() {
-  return '<main class="pane-choice"><h2>Открыть во второй панели</h2>'+paneSections.map(([key,title,glyph])=>
+  return '<main class="pane-choice">'+paneSections.map(([key,title,glyph])=>
     button(key==='reader'?'back':'go:'+key,icon(glyph)+title,'cs-tool')).join('')+'</main>';
 }
 function mountSecondary() {

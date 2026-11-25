@@ -6,6 +6,25 @@ const searchPageSize = 20;
 let courseSearchLimit = searchPageSize;
 const foldSearchText = text => text.normalize('NFKC').toLocaleLowerCase('ru').replaceAll('ё', 'е');
 
+function courseSearchButton(css='settings-icon') {
+  return button('find-course',icon('search'),css,'aria-label="Поиск по учебнику" title="Поиск по учебнику"');
+}
+
+function openCourseSearch() {
+  if (state.page !== 'home') go('home');
+  const input = auxiliary.querySelector('#course-query');
+  input.focus({preventScroll:true});
+  revealCourseSearch();
+}
+
+function revealCourseSearch() {
+  const input = document.activeElement;
+  if (input?.id !== 'course-query' || primary.hidden) return;
+  const field = input.getBoundingClientRect(), pane = primary.getBoundingClientRect();
+  if (field.top < pane.top + 4) primary.scrollTop += field.top - pane.top - 4;
+  else if (field.bottom > pane.bottom - 4) primary.scrollTop += field.bottom - pane.bottom + 4;
+}
+
 function courseSearchForm() {
   return '<section class="course-search" role="search" aria-label="Поиск по учебнику">' +
     '<label for="course-query">Поиск по учебнику</label><div class="course-search-field">' + icon('search') +
