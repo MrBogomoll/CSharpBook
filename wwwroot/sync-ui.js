@@ -1,7 +1,9 @@
 import {SyncEngine, isSyncKey} from './sync-engine.js';
 import {available, getStatus, connect, disconnect, getProvider, openExchangeFile, saveExchangeFile} from './sync-bridge.js';
+import {SyncSchedule, syncIntervals, syncPreferences} from './sync-schedule.js';
 
 const providers = {google: 'Google Диск', yandex: 'Яндекс Диск'};
+const preferencesKey = 'sync-auto-settings';
 
 function showValue(value) {
   if (value === null) return 'Удалено';
@@ -24,12 +26,28 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
   let choosingService = false;
   let configured = {};
   let busy = false;
+  let disconnects = 0;
   let message = '';
-  let timer;
+  let preferences = syncPreferences(store.get(preferencesKey));
+  const schedule = new SyncSchedule(() => synchronize());
   let statusReady = false;
   let conflicts = [];
   let connectionControls = '';
   let conflictsVersion = '';
+
+  function activePreferences() {
+    return providers[provider] ? preferences : syncPreferences();
+  }
+
+  function updateAvailability() {
+    schedule.setAvailable(Boolean(provider) && !busy && document.visibilityState === 'visible' &&
+      (!providers[provider] || navigator.onLine));
+  }
+
+  function configureSchedule(lastCheck) {
+    schedule.configure(Boolean(provider), activePreferences(), lastCheck);
+    updateAvailability();
+  }
 
   function controls() {
     if (!settings?.isConnected) return;
@@ -84,6 +102,13 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
       settings.querySelector('.sync-description').textContent = intro;
     }
     for (const button of settings.querySelectorAll('[data-sync]')) button.disabled = busy;
+    const options = settings.querySelector('.sync-options');
+    options.hidden = !providers[provider] || !statusReady || choosingService;
+    options.elements.onChange.checked = preferences.onChange;
+    options.elements.timer.checked = preferences.timer;
+    options.elements.minutes.value = String(preferences.minutes);
+    options.querySelector('.sync-interval').hidden = !preferences.timer;
+    options.querySelector('.sync-timer-hint').hidden = !preferences.timer;
     const status = settings.querySelector('.sync-status');
     if (status.textContent !== message) status.textContent = message;
     const conflictBox = settings.querySelector('.sync-conflicts');
@@ -124,7 +149,7 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
             conflicts = engine.conflicts();
             message = 'Выбранный вариант сохранён на устройстве.';
             controls();
-            schedule(0);
+            schedule.changed(0);
           } catch (error) { fail(error); }
         };
         details.append(device, preview, use);
@@ -139,10 +164,26 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
     settings.hidden = false;
     connectionControls = conflictsVersion = '';
     settings.innerHTML = '<h2>Синхронизация</h2><p class="sync-description"></p><div class="sync-actions"></div>' +
+      '<fieldset class="sync-options" hidden><legend>Автоматическая синхронизация</legend>' +
+      '<label><input type="checkbox" name="onChange"> При изменениях</label>' +
+      '<label><input type="checkbox" name="timer"> По таймеру</label>' +
+      '<label class="sync-interval">Интервал <select name="minutes">' +
+      syncIntervals.map(minutes => '<option value="' + minutes + '">' + minutes + ' мин</option>').join('') +
+      '</select></label><small class="sync-timer-hint">Таймер работает, пока учебник открыт. Пропущенная проверка выполнится при возврате.</small></fieldset>' +
       '<p class="sync-status" role="status"></p><div class="sync-conflicts"></div>';
     settings.onclick = event => {
       const button = event.target.closest('[data-sync]');
       if (button && !busy && !button.disabled) handle(button.dataset.sync);
+    };
+    settings.querySelector('.sync-options').onchange = event => {
+      if (!providers[provider]) return;
+      const {name, checked, value} = event.target;
+      const previous = preferences;
+      preferences = syncPreferences({...preferences, [name]:name === 'minutes' ? Number(value) : checked});
+      store.set(preferencesKey, preferences);
+      configureSchedule();
+      if (preferences.onChange && (!previous.onChange || engine?.hasLocalChanges())) schedule.changed();
+      controls();
     };
     controls();
   }
@@ -152,13 +193,7 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
     controls();
   }
 
-  function schedule(delay) {
-    clearTimeout(timer);
-    if (provider) timer = setTimeout(synchronize, delay);
-  }
-
   async function synchronize(restoreOnly = false) {
-    clearTimeout(timer);
     if (busy || !provider) return;
     if (provider !== 'folder' && provider !== 'documents' && !navigator.onLine) {
       message = 'Нет подключения. Прогресс сохранён на устройстве.';
@@ -166,6 +201,9 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
       return;
     }
     busy = true;
+    schedule.begin();
+    const networkAtStart = disconnects;
+    let retryOnReconnect = false;
     message = restoreOnly ? 'Ищем сохранённый прогресс на диске…' : 'Синхронизируем…';
     controls();
     try {
@@ -186,15 +224,22 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
       else message = 'Синхронизировано в ' + time + '.';
       if (engine.hasLocalChanges()) {
         if (!restoreOnly) message = 'Новые изменения сохранены на устройстве.';
-        schedule(1800);
+        schedule.changed();
       }
     } catch (error) {
+      retryOnReconnect = Boolean(providers[provider]) && (networkAtStart !== disconnects || !navigator.onLine);
       if (error.changedKeys?.length) {
         refresh(error.changedKeys);
         conflicts = engine.conflicts();
       }
       fail(error);
-    } finally { busy = false; controls(); }
+    } finally {
+      if (providers[provider] && !retryOnReconnect) store.set('sync-last-check/' + provider, Date.now());
+      schedule.finish(retryOnReconnect);
+      busy = false;
+      updateAvailability();
+      controls();
+    }
   }
 
   async function handle(command) {
@@ -206,7 +251,8 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
       return;
     }
     busy = true;
-    clearTimeout(timer);
+    updateAvailability();
+    let exchangeAfterConnect = false;
     message = ({
       disconnect:'Отключаем диск…', status:'Проверяем подключение…', folder:'Выбери папку обмена…',
       documents:'Открой файл ПК, затем сохрани файл телефона в той же папке.',
@@ -228,17 +274,19 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
           refresh(changedKeys);
           conflicts = engine.conflicts();
           message = 'Прогресс из файла объединён с прогрессом на устройстве.';
-          schedule(1800);
+          schedule.changed();
         }
         return;
       }
-      if (command === 'disconnect') { await disconnect(); provider = null; }
+      if (command === 'disconnect') await disconnect();
       else if (command === 'documents' || command === 'phone-first' || command === 'add-peer') {
         engine ||= new SyncEngine(store, label);
         await store.flush();
         await connect('documents', engine.deviceId, command === 'documents' ? 'pair' : command);
       } else if (command !== 'status') await connect(command);
       statusReady = false;
+      provider = null;
+      configureSchedule();
       const status = await getStatus();
       provider = status.provider;
       awaitingPeer = status.awaitingPeer === true;
@@ -246,15 +294,19 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
       statusReady = true;
       choosingService = false;
       message = '';
-      schedule(0);
+      const lastCheck = store.get('sync-last-check/' + provider);
+      configureSchedule(Number.isFinite(lastCheck) ? lastCheck : undefined);
+      exchangeAfterConnect = Boolean(provider) && (command !== 'status' || activePreferences().onChange);
     } catch (error) {
       if (error.changedKeys?.length) refresh(error.changedKeys);
       fail(error);
     } finally {
       busy = false;
-      if ((command === 'export' || command === 'import') && engine?.hasLocalChanges()) schedule(1800);
+      if ((command === 'export' || command === 'import') && engine?.hasLocalChanges()) schedule.changed();
+      updateAvailability();
       controls();
     }
+    if (exchangeAfterConnect) await synchronize();
   }
 
   function saved(event) {
@@ -262,18 +314,27 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
     if (!busy) {
       message = 'Изменения сохранены на устройстве.';
       controls();
-      schedule(1800);
+      schedule.changed();
     }
   }
 
   window.addEventListener('book-local-write', saved);
   window.addEventListener('book-storage', saved);
-  window.addEventListener('online', () => schedule(0));
-  window.addEventListener('offline', () => { if (provider && !busy) synchronize(); });
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') schedule(0);
+  function wake() {
+    updateAvailability();
+    if (document.visibilityState === 'visible' && !busy &&
+        (!activePreferences().timer || engine?.hasLocalChanges())) schedule.changed(0);
+  }
+  window.addEventListener('online', wake);
+  window.addEventListener('offline', () => {
+    disconnects++;
+    updateAvailability();
+    if (providers[provider] && !busy) {
+      message = 'Нет подключения. Прогресс сохранён на устройстве.';
+      controls();
+    }
   });
-  setInterval(() => { if (document.visibilityState === 'visible' && provider) synchronize(); }, 90000);
+  document.addEventListener('visibilitychange', wake);
   if (native) handle('status');
   return {mount};
 }

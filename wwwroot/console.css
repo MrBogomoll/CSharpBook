@@ -19,7 +19,7 @@
 :is(#book,:root) .cx-console .cx-crumb,:is(#book,:root) .cx-console .cx-label{color:var(--violet);font-size:11px;font-weight:650;letter-spacing:.065em;text-transform:uppercase}
 :is(#book,:root) .cx-console .cx-product h1{font:700 clamp(30px,calc(var(--book-screen,100vw) * .046),43px)/1.1 Inter,"Segoe UI",Arial,sans-serif;letter-spacing:-.052em;margin:4px 0}
 :is(#book,:root) .cx-console .cx-description{color:var(--sub)!important;font-size:13px}
-:is(#book,:root) .cx-console .cx-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(215px,1fr);border-radius:11px;overflow:hidden;border:1px solid #393544;background:#20202a;align-items:stretch}
+:is(#book,:root) .cx-console .cx-grid{display:grid;--stacked:0;--grip:12px;grid-template-columns:minmax(0,var(--editor-share,3fr)) var(--grip) minmax(0,var(--output-share,2fr));border-radius:11px;overflow:hidden;border:1px solid #393544;background:#20202a;align-items:stretch}
 :is(#book,:root) .cx-console .cx-editor,:is(#book,:root) .cx-console .cx-terminal{min-width:0}
 :is(#book,:root) .cx-console .cx-terminal{background:#191922;border-left:1px solid #403d4a;display:flex;flex-direction:column;color:#edeaf2}
 :is(#book,:root) .cx-console .cx-filebar,:is(#book,:root) .cx-console .cx-termbar{height:43px;display:flex;gap:10px;align-items:center;justify-content:space-between;border-bottom:1px solid #393744;padding:0 12px;color:#e1dce9;background:#292733}
@@ -66,7 +66,7 @@
 :is(#book,:root) .cx-console .cx-product .cx-method:hover,:is(#book,:root) .cx-console .cx-product .cx-method[aria-selected=true]{background:#494053}
 :is(#book,:root) .cx-console .cx-product code{font-family:Consolas,monospace}
 @container cxapp (max-width:650px){
-  :is(#book,:root) .cx-console .cx-grid{grid-template-columns:minmax(0,1fr)}
+  :is(#book,:root) .cx-console .cx-grid{--stacked:1;grid-template-columns:minmax(0,1fr)}
   :is(#book,:root) .cx-console .cx-terminal{border-left:0;border-top:1px solid #494252}
 }
 @container book-window (max-width:650px){
@@ -106,7 +106,8 @@
 :is(#book,:root) .cx-console .cx-stdin label{flex:1 1 100px;min-width:0;display:grid;gap:4px;font-size:12px}
 :is(#book,:root) .cx-console .cx-stdin input{width:100%;min-width:0;border:1px solid #82738e;background:#26232e;color:#f4eef7;border-radius:5px;padding:7px;font:14px/1.3 Consolas,monospace}
 :is(#book,:root) .cx-console .cx-stdin input:focus{outline:2px solid #c9aff4;outline-offset:1px}
-:is(#book,:root) .cx-console .cx-codeview{--row:25px;--type:14px;--height:calc(var(--cx-lines,5) * var(--row) + 30px);min-width:0;background:#20202a;color:#eeeaf6}
+:is(#book,:root) .cx-console .cx-grid{--row:25px;--type:14px;--height:calc(var(--cx-lines,5) * var(--row) + 30px)}
+:is(#book,:root) .cx-console .cx-codeview{min-width:0;background:#20202a;color:#eeeaf6}
 :is(#book,:root) .cx-console .cm-editor{height:var(--height);text-align:left}
 :is(#book,:root) .cx-console .cm-editor.cm-focused{outline:1px solid #b9a3d7;outline-offset:-1px}
 :is(#book,:root) .cx-console .cm-scroller{font:var(--type)/var(--row) Consolas,"Courier New",monospace;overflow:auto;letter-spacing:0;font-variant-ligatures:none}
@@ -119,14 +120,14 @@
 :is(#book,:root) .cx-console .cm-line.mark{background:#323041;box-shadow:inset 3px 0 #ae94d9}
 :is(#book,:root) .cx-console .cx-crumb{overflow-wrap:anywhere}
 @container book-window (max-width:650px){
-  :is(#book,:root) .cx-console .cx-codeview{--type:13px;--row:23px;--height:calc(var(--cx-lines,5) * var(--row) + 24px)}
+  :is(#book,:root) .cx-console .cx-grid{--type:13px;--row:23px;--height:calc(var(--cx-lines,5) * var(--row) + 24px)}
   :is(#book,:root) .cx-console .cm-content{padding:12px 0}
   :is(#book,:root) .cx-console .cm-lineNumbers .cm-gutterElement{min-width:24px}
   :is(#book,:root) .cx-console .cx-result{max-height:265px}
 }
 @media(pointer:coarse){
   :is(#book,:root) .cx-console .cx-product button{min-height:42px}
-  :is(#book,:root) .cx-console .cx-codeview{--type:16px}
+  :is(#book,:root) .cx-console .cx-grid{--type:16px;--grip:24px}
   :is(#book,:root) .cx-console .cx-filebar,:is(#book,:root) .cx-console .cx-termbar{min-height:44px}
   :is(#book,:root) .cx-console .cx-stdin input{font-size:16px;min-height:42px}
 }
@@ -149,15 +150,15 @@
 
 :is(#book,:root) .cx-console .cx-filebar {gap:3px}
 :is(#book,:root) .cx-console .cx-files {margin-inline-end:auto;overflow:hidden}
-:is(#book,:root) .cx-console .cx-product .cx-fullscreen {
+:is(#book,:root) .cx-console .cx-product :is(.cx-fullscreen,.cx-output-toggle) {
   display:grid;place-items:center;flex:none;width:32px;height:32px;color:#d6d0e0;
 }
 :is(#book,:root) .cx-console .cx-fullscreen[aria-pressed=false] > :last-child,
 :is(#book,:root) .cx-console .cx-fullscreen[aria-pressed=true] > :first-child {display:none}
 @media(pointer:coarse) {
-  :is(#book,:root) .cx-console .cx-product .cx-fullscreen {width:44px;height:44px}
+  :is(#book,:root) .cx-console .cx-product :is(.cx-fullscreen,.cx-output-toggle) {width:44px;height:44px}
   :is(#book,:root) .cx-console .cx-codeview {container-type:size}
-  :is(#book,:root) .cx-console:not(.is-fullscreen) .cx-codeview {height:min(var(--height),max(4 * var(--row),60dvh))}
+  :is(#book,:root) .cx-console .cx-grid {--regular-code-height:min(var(--height),max(4 * var(--row),60dvh))}
   :is(#book,:root) .cx-console .cm-editor {height:100%}
   /* Reserve a few draggable rows after the code, even for a one-line document. */
   :is(#book,:root) .cx-console .cm-content {
@@ -172,18 +173,36 @@
 :is(#book,:root) .cx-console.is-fullscreen :is(.cx-product,.cx-content,.cx-grid) {height:100%}
 :is(#book,:root) .cx-console.is-fullscreen :is(.cx-bar,.cx-head,.cx-help) {display:none}
 :is(#book,:root) .cx-console.is-fullscreen .cx-content {
-  padding: max(6px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right))
+  padding: var(--console-top-inset,max(2px,env(safe-area-inset-top))) max(10px,env(safe-area-inset-right))
            max(6px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
   background:#20202a;
 }
-:is(#book,:root) .cx-console.is-fullscreen .cx-grid {
-  grid-template-rows:minmax(min-content,1fr);overflow:auto;overscroll-behavior:contain;border:0;border-radius:5px;
+:is(#book,:root) .cx-console .cx-grid {
+  height:calc(var(--regular-code-height,var(--height)) + 106px);
+  grid-template-rows:minmax(min-content,1fr);
+  overflow:auto;overscroll-behavior:contain;
 }
-:is(#book,:root) .cx-console.is-fullscreen .cx-editor {display:flex;flex-direction:column}
-:is(#book,:root) .cx-console.is-fullscreen .cx-codeview {contain:size;flex:1 0 3.5rem;min-height:3.5rem}
-:is(#book,:root) .cx-console.is-fullscreen .cm-editor {height:100%}
+:is(#book,:root) .cx-console.is-fullscreen .cx-grid {height:100%;border:0;border-radius:5px}
+:is(#book,:root) .cx-console .cx-editor {display:flex;flex-direction:column}
+:is(#book,:root) .cx-console .cx-codeview {contain:size;flex:1 0 3.5rem;min-height:3.5rem}
+:is(#book,:root) .cx-console .cm-editor {height:100%}
 :is(#book,:root) .cx-console.is-fullscreen .cx-filebar {position:sticky;top:0;z-index:2;flex:none}
-:is(#book,:root) .cx-console.is-fullscreen .cx-result {contain:size;flex:1;min-height:2.5rem;max-height:none}
-@container cxapp (max-width:650px) {
-  :is(#book,:root) .cx-console.is-fullscreen .cx-grid {grid-template-rows:minmax(min-content,2fr) minmax(min-content,1fr)}
+:is(#book,:root) .cx-console .cx-result {contain:size;flex:1;min-height:2.5rem;max-height:none}
+:is(#book,:root) .cx-console .cx-output-divider {
+  position:relative;cursor:col-resize;touch-action:none;user-select:none;background:#302e3a;color:#9f8bbd;
 }
+:is(#book,:root) .cx-console .cx-output-divider::before {
+  content:"";position:absolute;inset:0;margin:auto;width:3px;height:36px;border-radius:4px;background:currentColor;
+}
+:is(#book,:root) .cx-console .cx-output-divider:is(:hover,:active,:focus-visible) {background:#52465f;color:#e1ceff}
+:is(#book,:root) .cx-console .cx-output-divider:focus-visible {outline:2px solid currentColor;outline-offset:-2px}
+:is(#book,:root) .cx-console .cx-output-toggle[aria-expanded=true] > :last-child,
+:is(#book,:root) .cx-console .cx-output-toggle[aria-expanded=false] > :first-child {display:none}
+@container cxapp (max-width:650px) {
+  :is(#book,:root) .cx-console:not(.is-fullscreen) .cx-grid {height:calc(var(--regular-code-height,var(--height)) + 244px)}
+  :is(#book,:root) .cx-console .cx-grid {grid-template-rows:minmax(min-content,var(--editor-share,2fr)) var(--grip) minmax(min-content,var(--output-share,1fr))}
+  :is(#book,:root) .cx-console .cx-output-divider {cursor:row-resize}
+  :is(#book,:root) .cx-console .cx-output-divider::before {width:36px;height:3px}
+  :is(#book,:root) .cx-console .cx-output-toggle svg {transform:rotate(90deg)}
+}
+:is(#book,:root) .cx-console .cx-grid.output-hidden {grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(min-content,1fr)}

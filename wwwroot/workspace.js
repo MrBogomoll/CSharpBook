@@ -29,6 +29,7 @@ function createWorkspace() {
   clip.className='book-viewport';screen.className='book-window';
   root.before(clip);clip.append(screen);screen.append(root);
   if(secondaryPane){
+    root.classList.add('secondary-pane');
     const syncWidth=()=>screen.style.setProperty('--book-screen',parent.innerWidth+'px');
     syncWidth();parent.addEventListener('resize',syncWidth);
     window.addEventListener('pagehide',()=>parent.removeEventListener('resize',syncWidth),{once:true});
@@ -267,6 +268,7 @@ function selectConsole(key) {
   if(previous)previous.scroll=consolePages.scrollTop;
   activeConsole=key;
   for(const item of consoleTabs.values())item.host.hidden=item!==tab;
+  tab.cleanup?.restoreOutputLayout(store.get('console-output-layout',null));
   consolePages.scrollTop=tab.scroll||0;
   store.set('console',tab.entry);rememberTabs();paintConsoleTabs();
 }
@@ -334,7 +336,9 @@ function addConsole(entry) {
   selectConsole(key);
   import('./console.js').then(({mountConsole})=>{
     if(consoleTabs.get(key)!==tab)return;
-    tab.cleanup=mountConsole(host,{...tab.entry,showHeader:false,onBack:resumeReading,onChange:(source,files)=>{
+    tab.cleanup=mountConsole(host,{...tab.entry,showHeader:false,onBack:resumeReading,
+      outputLayout:store.get('console-output-layout',null),onOutputLayoutChange:value=>store.set('console-output-layout',value),
+      onChange:(source,files)=>{
       tab.entry={...tab.entry,source,files,openedAfterDelete:false};
       saveConsoleDraft(tab.entry);
       rememberConsoleEntry(tab);

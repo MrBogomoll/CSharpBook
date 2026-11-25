@@ -37,7 +37,8 @@ public final class BookActivity extends Activity {
             frame.setOnApplyWindowInsetsListener((view,insets) -> {
                 android.graphics.Insets system = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
                 view.setPadding(system.left,system.top,system.right,system.bottom);
-                return insets;
+                // The WebView already fits inside these system and keyboard insets.
+                return WindowInsets.CONSUMED;
             });
         }
         setContentView(frame);
