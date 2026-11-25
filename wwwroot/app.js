@@ -45,17 +45,18 @@ function syncMarks() {
 }
 function settingsView() {
   const theme=store.get('theme','auto');
+  const installedApp=window.chrome?.webview || navigator.userAgent.includes('CSharpBookAndroid/');
   const preview=navigator.userAgent.includes('SharpwisePreview/');
   const betaVersion=/\bSharpwiseBeta\/(\d+\.\d+\.\d+_b\.\d+)\b/.exec(navigator.userAgent)?.[1];
   let channel='';
   if (betaVersion) channel='<p>Официальная бета. Следующая стабильная версия установится поверх неё и сохранит твой прогресс.</p>';
   else if (preview) channel='<p>Тестовая сборка. Перед обновлением ты увидишь номер стабильного выпуска.</p>';
-  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.3.8')+'</p><fieldset><legend>Оформление учебника</legend>'+
+  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.3.9')+'</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
     '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
     '<section id="book-cloud-sync" hidden></section>'+
     '<section id="book-updates"><h2>Обновление приложения</h2>'+channel+'<button type="button" class="cs-tool" id="book-update-button">'+
-    (preview || betaVersion?'Перейти на стабильную версию':'Обновить версию')+'</button><p id="book-update-status" role="status" aria-live="polite"></p></section>'+
+    (installedApp?'Проверить обновления':'Обновить версию')+'</button><p id="book-update-status" role="status" aria-live="polite"></p></section>'+
     (store.warning?'<p role="alert">'+esc(store.warning)+'</p>':'')+
     button('exit',icon('log-out')+'Выйти из приложения','cs-tool')+'</main>';
 }

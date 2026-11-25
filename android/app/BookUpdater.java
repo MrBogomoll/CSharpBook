@@ -1,10 +1,12 @@
 package ru.csharpbook.reader;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.*;
 import android.content.pm.*;
 import android.net.Uri;
 import android.provider.Settings;
+import android.text.format.Formatter;
 import org.json.*;
 import java.io.*;
 import java.net.*;
@@ -175,13 +177,30 @@ final class BookUpdater {
                 long size = asset.getLong("size");
                 if (!url.equals(asset.getString("browser_download_url")) || !digest.matches("sha256:[0-9a-f]{64}") || size < 1 || size > 512L*1024*1024)
                     throw new IOException("Не удалось подтвердить файл выпуска.");
-                download(url, version, size, digest.substring(7));
-                activity.runOnUiThread(() -> {
-                    if (!alive()) return;
-                    requestInstall();
-                });
+                activity.runOnUiThread(() -> offerDownload(url, version, size, digest.substring(7)));
             } catch (Exception error) { post("Обновление не завершено. " + reason(error), false); }
-        }, "book-update").start();
+        }, "book-update-check").start();
+    }
+    private void offerDownload(String url, String version, long size, String digest) {
+        if (!alive()) return;
+        state("Доступна версия " + version + ".", true);
+        String details = "Sharpwise " + version + " · " + Formatter.formatShortFileSize(activity, size);
+        if (BuildConfig.VERSION_NAME.contains("_b.")) details += "\nСтабильный выпуск заменит тестовую сборку.";
+        new AlertDialog.Builder(activity)
+            .setTitle("Скачать обновление?")
+            .setMessage(details)
+            .setNegativeButton("Отмена", (dialog, which) -> dialog.cancel())
+            .setOnCancelListener(dialog -> state("Загрузка отменена.", false))
+            .setPositiveButton("Скачать", (dialog, which) -> {
+                state("Скачиваем версию " + version + "…", true);
+                new Thread(() -> {
+                    try {
+                        download(url, version, size, digest);
+                        activity.runOnUiThread(() -> { if (alive()) requestInstall(); });
+                    } catch (Exception error) { post("Обновление не завершено. " + reason(error), false); }
+                }, "book-update-download").start();
+            })
+            .show();
     }
     private static String reason(Exception error) {
         if (error instanceof UnknownHostException || error instanceof SocketTimeoutException || error instanceof ConnectException)

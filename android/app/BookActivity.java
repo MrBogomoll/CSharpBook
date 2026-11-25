@@ -63,7 +63,7 @@ public final class BookActivity extends Activity {
                 if ("csharpbook".equals(uri.getScheme())) {
                     if ("csharpbook://update/start".equals(uri.toString()) && view.getUrl() != null && local(Uri.parse(view.getUrl()))) {
                         if (request.hasGesture()) updater.start();
-                        else showUpdate("Нажми «Обновить версию» в настройках.",false);
+                        else showUpdate("Нажми «Проверить обновления» в настройках.", false);
                     }
                     return true;
                 }
