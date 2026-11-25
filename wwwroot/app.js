@@ -45,7 +45,7 @@ function syncMarks() {
 }
 function settingsView() {
   const theme=store.get('theme','auto');
-  return '<main class="settings-view"><h1>Настройки</h1><p>Учебник C# · Версия 0.3.0</p><fieldset><legend>Оформление учебника</legend>'+
+  return '<main class="settings-view"><h1>Настройки</h1><p>Учебник C# · Версия 0.3.1</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
     '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
     '<section id="book-cloud-sync" hidden></section>'+
@@ -200,6 +200,10 @@ root.addEventListener('click',e=>{
   if(action==='lesson') return go('lesson',arg);
   if(action==='go') return go(arg);
   if(action==='back') return resumeReading();
+  if(action==='open-syntax' && typeof lesson.syntaxGuide?.output==='string'){
+    return openConsoleEntry({key:'snippet/'+lesson.id+'/syntax-guide',source:lesson.syntaxGuide.sample,
+      files:lesson.syntaxGuide.files||{},version:lesson.version||10,topicId:lesson.id,topicTitle:lesson.title,exampleTitle:'Как устроена запись'});
+  }
   if(action==='open-example') return useExample();
   if(action==='open-editor-draft')return useExample();
   if(action==='open-beside')return useExample(true);

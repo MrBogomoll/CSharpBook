@@ -13,6 +13,21 @@
 #book .cs-product .study-step[aria-current=step] {background:var(--cs-wash);border-color:var(--cs-violet);color:var(--cs-violet)}
 #book .chapter-task-count {display:block;margin-top:3px}
 #book .cp-widget .practice-instruction {margin:0 0 15px;line-height:1.6}
+#book .syntax-guide {min-width:0;max-width:70ch}
+#book .syntax-guide .guide-sample {margin:10px 0;padding:12px 14px;overflow-x:auto;border-radius:7px;background:#242331;color:#f4eff9}
+#book .syntax-guide .guide-sample code {padding:0;background:transparent;color:inherit;white-space:pre;font:14px/1.6 Consolas,monospace}
+#book .guide-parts {margin:0}
+#book .guide-parts > div {display:grid;grid-template-columns:minmax(6em,1fr) minmax(0,2.5fr);gap:12px;padding:9px 0;border-bottom:1px solid var(--cs-line)}
+#book .guide-parts dt {align-self:start}
+#book .guide-parts dt code {white-space:pre-wrap;overflow-wrap:anywhere;font-weight:600}
+#book .guide-parts dd {margin:0;line-height:1.55;overflow-wrap:anywhere}
+#book .guide-recap {margin-bottom:16px}
+#book .guide-output {margin:8px 0;padding:9px 12px;overflow-x:auto;border-inline-start:3px solid var(--cs-violet);background:var(--cs-nav);white-space:pre-wrap}
+#book .syntax-guide summary {overflow-wrap:anywhere}
+#book .guide-try {margin:12px 0 18px}
+@container csapp (max-width:560px) {
+  #book .guide-parts > div {grid-template-columns:minmax(0,1fr);gap:4px}
+}
 #book .practice-files {display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
 #book .practice-files button[aria-pressed=true] {background:var(--cs-wash);color:var(--cs-violet)}
 #book .cp-widget .practice-source {padding:14px;background:#23232f;color:#f4eff9;border-radius:8px;overflow:auto;margin:12px 0}

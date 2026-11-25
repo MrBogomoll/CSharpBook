@@ -40,11 +40,13 @@ function exerciseView(lesson,task) {
     button('task-file:'+i,esc(name),'cs-tool','aria-pressed="'+(file===name)+'"')).join('')+'</div>':'';
   const codeArea='<label class="cs-draft-label">'+(names.length>1?esc(file):'Твой код')+'<textarea class="cs-draft" rows="8" placeholder="Введи здесь свой код на C#" spellcheck="false" autocorrect="off" autocapitalize="off" aria-keyshortcuts="Control+Enter Meta+Enter">'+esc(files[file])+'</textarea></label>';
   const prediction= predict?('<pre class="practice-source"><code>'+syntax(files[file])+'</code></pre><label class="cs-draft-label">Твой ответ<textarea class="prediction-answer" rows="3" placeholder="Введи строки в том порядке, в котором они появятся на экране" spellcheck="false" autocapitalize="off">'+esc(store.get(draftKey(lesson,task),''))+'</textarea></label>'):'';
+  const gapHint = task.starter?.includes('___') && !predict
+    ? '<p>Три подчёркивания <code>___</code> отмечают пропуск в заготовке. Замени их кодом.</p>' : '';
   const reference=Object.entries({'Program.cs':task.solution,...task.files}).map(([name,code])=>(names.length>1?'<strong>'+esc(name)+'</strong>':'')+copyable(code)).join('');
   return banner(lesson.title+' · Упражнение '+(index+1)+' из '+lesson.exercises.length,task.title,task.kind)+
     '<section class="cs-reading cp-widget" data-exercise="'+esc(task.id)+'"><p class="practice-instruction" data-note-anchor="instruction">'+formatText(task.instruction)+'</p>'+
     (task.stdin?.length?'<p>Данные для проверки по порядку: '+task.stdin.map(x=>'<code>'+esc(x||'пустая строка')+'</code>').join(', ')+'.</p>':'')+
-    fileTabs+(predict?prediction:codeArea)+'<div class="cp-runbar">'+button('run-draft',icon(predict?'check':'play')+(predict?'Проверить ответ':'Запустить код'),'cp-run')+
+    syntaxGuide(lesson,true)+gapHint+fileTabs+(predict?prediction:codeArea)+'<div class="cp-runbar">'+button('run-draft',icon(predict?'check':'play')+(predict?'Проверить ответ':'Запустить код'),'cp-run')+
     (predict?'':button('stop-draft',icon('square')+'Остановить','cs-tool','hidden'))+'</div><div class="cp-console"><strong>'+(predict?'Проверка ответа':'Результат запуска')+'</strong>'+
     '<div class="cp-response" role="status" aria-live="polite"><p class="cp-status">'+(exerciseDone(lesson,task)?'Упражнение решено.':predict?'Здесь появится результат проверки.':'Здесь появится вывод твоей программы.')+'</p></div>'+
     (predict?'':'<form class="cp-input" hidden><input aria-label="Ввод для программы" autocomplete="off" placeholder="Введи строку для программы"><button type="submit">Отправить</button></form>')+'</div>'+

@@ -83,6 +83,28 @@ function homeView(lesson){
   }).join('');
   return '<div class="cs-home-intro"><h1><span>C#</span> с нуля</h1><p>Начни с первой программы, затем научись хранить данные и выбирать, что программа сделает дальше.</p></div><div class="cs-home-grid">'+resume+'<section class="cs-toc"><div class="cs-heading-row"><h2>Содержание</h2><small>'+chapters.length+' '+words(chapters.length,'тема','темы','тем')+' · '+lessons.length+' '+words(lessons.length,'глава','главы','глав')+'</small></div>'+rows+'</section></div>';
 }
+function syntaxGuide(lesson, recap = false) {
+  if (!lesson.syntaxGuide) return '';
+  const { sample, parts, try: experiment } = lesson.syntaxGuide;
+  const entries = parts.map(([piece, meaning]) =>
+    '<div><dt><code>' + esc(piece) + '</code></dt><dd>' + formatText(meaning) + '</dd></div>'
+  ).join('');
+  const open = typeof lesson.syntaxGuide.output === 'string'
+    ? button('open-syntax', icon('square-terminal') + 'Открыть в консоли', 'cs-tool')
+    : '';
+  const companions = Object.entries(lesson.syntaxGuide.files || {}).map(([name, code]) =>
+    '<details class="guide-file"><summary>' + esc(name) + '</summary><pre class="guide-sample"><code>' + syntax(code) + '</code></pre></details>'
+  ).join('');
+  const result = open ? '<details><summary>Что выведет этот код</summary>' +
+    '<pre class="guide-output">' + esc(lesson.syntaxGuide.output || '(пустой вывод)') + '</pre></details>' : '';
+  const body = '<pre class="guide-sample"><code>' + syntax(sample) + '</code></pre>' +
+    companions + exampleInput(lesson.syntaxGuide) + result +
+    '<dl class="guide-parts">' + entries + '</dl>' +
+    '<p class="guide-try" data-note-anchor="syntax-experiment"><strong>Попробуй изменить код.</strong> ' + formatText(experiment) + '</p>' + open;
+  return recap
+    ? '<details class="syntax-guide guide-recap"><summary>Вспомнить синтаксис</summary>' + body + '</details>'
+    : '<section class="syntax-guide cs-reading"><h2>Как устроена запись</h2>' + body + '</section>';
+}
 function teach(lesson) {
   const steps=lesson.examples[state.example].steps, q=lesson.practice, a=store.get('answer/'+lesson.id,null);
   const answered=Number.isInteger(a);
@@ -103,7 +125,7 @@ function lessonView(lesson) {
   const readButton=button('read',icon(read?'circle-check':'circle')+(read?'Прочитано':'Отметить прочитанным'),'cs-tool'+(read?' on':''),'aria-pressed="'+read+'"');
   const links='<div class="bm-links"><span role="status" aria-live="polite">'+esc(feedback)+'</span>'+button('go:saved','Открыть закладки'+icon('arrow-right'),'cs-flat cs-next')+button('go:home','К оглавлению'+icon('chevron-right'),'cs-flat')+'</div>';
   return banner('Тема '+(i+1)+' · '+chapters[i].title+' · Глава '+(chapters[i].topics.indexOf(lesson)+1),lesson.title,lesson.intro,lesson.id==='variables')+controls+links+
-    '<div class="cs-body">'+theoryView(lesson.theory)+'<h2>'+esc(lesson.section)+'</h2><p class="cs-description">'+formatText(lesson.description)+'</p>'+
+    '<div class="cs-body">'+syntaxGuide(lesson)+theoryView(lesson.theory)+'<h2>'+esc(lesson.section)+'</h2><p class="cs-description">'+formatText(lesson.description)+'</p>'+
     tabs(lesson)+exampleInput(lesson.examples[state.example])+editor(lesson)+(lesson.note?'<p class="lesson-note">'+formatText(lesson.note)+'</p>':'')+teach(lesson)+projectLink(lesson)+
     '<div class="cs-actions">'+button('go:home',icon('book-open')+'К оглавлению','cs-tool')+readButton+button('step:'+lesson.exercises[0].id,'К упражнениям'+icon('arrow-right'),'cs-flat cs-next')+'</div></div>';
 }
