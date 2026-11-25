@@ -51,10 +51,10 @@ function settingsView() {
   let channel='';
   if (betaVersion) channel='<p>Официальная бета. Следующая стабильная версия установится поверх неё и сохранит твой прогресс.</p>';
   else if (preview) channel='<p>Тестовая сборка. Перед обновлением ты увидишь номер стабильного выпуска.</p>';
-  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.4.0')+'</p><fieldset><legend>Оформление учебника</legend>'+
+  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.4.1')+'</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
     '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
-    '<section id="book-cloud-sync" hidden></section>'+
+    solvedList('course')+'<section id="book-cloud-sync" hidden></section>'+
     '<section id="book-updates"><h2>Обновление приложения</h2>'+channel+'<button type="button" class="cs-tool" id="book-update-button">'+
     (installedApp?'Проверить обновления':'Обновить версию')+'</button><p id="book-update-status" role="status" aria-live="polite"></p></section>'+
     (store.warning?'<p role="alert">'+esc(store.warning)+'</p>':'')+
@@ -131,13 +131,8 @@ function refreshMarks(updatePage=true) {
       control.innerHTML=icon(marked?onIcon:offIcon)+(marked?on:off);
     }
     const status=reader.querySelector('.bm-links [role=status]');if(status)status.textContent=feedback;
-  } else if(readerKey.startsWith('chapter/')){
-    const chapter=chapters[Number(readerKey.slice(8))];
-    for(const link of reader.querySelectorAll('.chapter-sequence [data-action]')){
-      const topic=chapter.topics.find(t=>'lesson:'+t.id===link.dataset.action);
-      if(topic)link.innerHTML=icon(state.read.includes(topic.id)?'circle-check':'circle')+esc(topic.title);
-    }
   }
+  refreshExerciseProgress();
   if(updatePage)render();
 }
 function paintReader() {
@@ -173,7 +168,9 @@ function render(forceReader=false) {
     if(reading&&forceReader)paintReader();
     if(page==='choose')auxiliary.innerHTML=choosePaneView();
     if(page==='home'){
+      const listOpen=auxiliary.querySelector('.cs-home .solved-tasks')?.open;
       auxiliary.innerHTML='<main class="cs-home">'+homeView(lesson)+'</main>';
+      if(listOpen)auxiliary.querySelector('.solved-tasks').open=true;
       mountTopicIndex(auxiliary.querySelector('.topic-index'));
     }
     if(page==='saved')auxiliary.innerHTML='<main class="cs-home">'+bookmarkedPage(lesson)+'</main>';
@@ -202,6 +199,9 @@ async function copyText(text,trigger) {
     trigger.setAttribute('aria-live','polite');trigger.textContent=ok?'Скопировано':'Выдели и скопируй текст';
   }
 }
+root.addEventListener('toggle', e => {
+  if (e.target.matches('.solved-tasks[open]')) fillSolvedList(e.target);
+}, true);
 root.addEventListener('click',e=>{
   const trigger=e.target.closest('[data-action]');
   if(!trigger || trigger.closest('#editor-host')) return;
@@ -228,6 +228,7 @@ root.addEventListener('click',e=>{
   if(action==='open-editor-draft')return useExample();
   if(action==='open-beside')return useExample(true);
   if(action==='run-draft') return runExercise();
+  if(action==='run-custom') return runExercise(true);
   if(action==='clear-draft-output')return clearExerciseOutput();
   if(action==='stop-draft')return stopExercise(exerciseRuns.get(readerKey));
   if(action==='copy-command'||action==='copy-sample')return copyText(trigger.dataset.source??trigger.querySelector('code').textContent,trigger);
@@ -306,9 +307,11 @@ function refreshCloudChanges(changes) {
     const count=document.getElementById('book-read-count');
     if(count)count.textContent=state.read.length;
   }
-  if(changes.some(key=>key.startsWith('solved/')))refreshStepMarks();
+  const solved=changes.some(key=>key.startsWith('solved/'));
+  if(solved && !marks)refreshExerciseProgress();
   if(changes.some(key=>key.startsWith('note/')))decorateNoteMarks();
   updateSyncedConsoles(keys);
+  if(page==='home' && changes.every(key=>key.startsWith('solved/')))return;
   if(page==='home'||page==='saved'){render();return;}
   if(reading){
     const task=activeTask(), area=reader.querySelector('.cs-draft,.prediction-answer');

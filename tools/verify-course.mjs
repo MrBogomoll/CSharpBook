@@ -48,7 +48,22 @@ for (const chapter of course) {
         desktopUnsafe:lab.allowUnsafe === true});
     }
     const tasks=topic.exercises, keys=new Set();
-    if(tasks.length<3||tasks.length>7||tasks[0].id!=='original')throw new Error('Invalid exercise count or legacy ID: '+topic.id);
+    if(tasks.length<5||tasks.length>9||tasks[0].id!=='original')throw new Error('Invalid exercise count or legacy ID: '+topic.id);
+    const levels=['advanced','expert'];
+    for(const [index,task] of tasks.entries()){
+      const level=index-(tasks.length-2);
+      if(level<0 ? task.difficulty!=null :
+          task.difficulty!==levels[level] || task.id!=='challenge-'+(level+1) || task.answerMode==='output' ||
+          typeof task.starter!=='string' || task.starter.trim()===task.solution.trim()){
+        throw new Error('Invalid final challenge or difficulty: '+topic.id+'/'+task.id);
+      }
+      if(task.difficulty && task.stdin){
+        const cases=[task,...(task.checks||[])];
+        if(cases.length<3 || cases.some(test=>!Array.isArray(test.stdin) || test.stdin.some(s=>typeof s!=='string') ||
+            typeof test.output!=='string') || new Set(cases.map(test=>JSON.stringify(test.stdin))).size!==cases.length ||
+            new Set(cases.map(test=>test.output)).size<2) throw new Error('Invalid challenge cases: '+topic.id+'/'+task.id);
+      }
+    }
     for(const task of tasks){
       if(!/^[a-z0-9-]+$/.test(task.id)||keys.has(task.id)||!task.title||!task.kind||!task.instruction||
           !task.solution||typeof task.output!=='string'||(task.answerMode==='output'&&(!task.starter||!task.explanation))){
@@ -198,11 +213,13 @@ async function verify(program, index, base) {
   await fs.writeFile(join(directory, 'Lesson.runtimeconfig.json'), JSON.stringify({
     runtimeOptions: { tfm: 'net' + version + '.0', framework: { name: 'Microsoft.NETCore.App', version: version + '.0.0' } }
   }));
-  const execution = await run([asm], directory, program.stdin?.length ? program.stdin.join('\n') + '\n' : '');
-  const stdout = execution.stdout.replaceAll('\r\n', '\n').replace(/\n$/, '');
-  if (execution.code !== 0 || stdout !== program.output) {
-    throw new Error('Expected ' + JSON.stringify(program.output) + ', got ' + JSON.stringify(stdout) +
-      ' (' + execution.code + ')\n' + execution.stderr);
+  for(const [caseIndex,test] of [program,...(program.checks || [])].entries()) {
+    const execution = await run([asm], directory, test.stdin?.length ? test.stdin.join('\n') + '\n' : '');
+    const stdout = execution.stdout.replaceAll('\r\n', '\n').replace(/\n$/, '');
+    if (execution.code !== 0 || stdout !== test.output) {
+      throw new Error('Case '+(caseIndex+1)+' expected ' + JSON.stringify(test.output) + ', got ' + JSON.stringify(stdout) +
+        ' (' + execution.code + ')\n' + execution.stderr);
+    }
   }
 }
 
@@ -230,6 +247,6 @@ try {
   }
 }
 for (const problem of failures) process.stderr.write(problem + '\n');
-console.log(`${course.length} themes, ${ids.size} chapters. ${passed}/${programs.length} verified: ` +
+console.log(`${course.length} themes, ${ids.size} chapters. ${passed}/${programs.length} programs verified (${programs.reduce((n,p)=>n+(p.checks?.length||0),0)} additional input cases): ` +
   [...versions.values()].map(({sdk}) => sdk).join(', ') + '.');
 if (failures.length) process.exitCode = 1;

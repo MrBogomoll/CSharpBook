@@ -28,7 +28,7 @@ function sandboxFrame() {
     const {workerCode,payload}=event.data;
     let shared=null, worker=null, uri=null;
     try {
-      if (crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined') shared=new SharedArrayBuffer(65544);
+      if (!payload.stdin && crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined') shared=new SharedArrayBuffer(65544);
       uri=URL.createObjectURL(new Blob([workerCode],{type:'text/javascript'}));
       worker=new Worker(uri,{credentials:'omit'});
       const fail=text=>{port.postMessage({type:'error',text});port.postMessage({type:'done'});};
@@ -56,7 +56,7 @@ function sandboxFrame() {
   },{once:true});
 }
 
-export function startRun({source,version=10,files={},onEvent}) {
+export function startRun({source,version=10,files={},stdin,onEvent}) {
   let finished=false, port=null, frame=null, writer=null, writable=false, useShared=false;
   let runningSince=0, remaining=30000, ready=false;
   let deadline=setTimeout(()=>fault('Среда не загрузилась за 90 секунд.'),90000);
@@ -95,8 +95,8 @@ export function startRun({source,version=10,files={},onEvent}) {
     if (extra.length>100 || extra.some(([name,code])=>typeof code!=='string' || name.length>256) || extra.reduce((n,[,s])=>n+s.length,source.length)>1200000) throw new Error('Проект слишком велик для браузерного запуска.');
     // The mailbox is only used when this browser cannot share memory in its opaque iframe.
     const mailboxAbort=new AbortController();
-    const mailboxTimer=setTimeout(()=>mailboxAbort.abort(),4500);
-    const mailbox=fetch(endpoint,{...requestInit,method:'POST',signal:mailboxAbort.signal}).then(async r=>{
+    const mailboxTimer=stdin ? null : setTimeout(()=>mailboxAbort.abort(),4500);
+    const mailbox=stdin ? null : fetch(endpoint,{...requestInit,method:'POST',signal:mailboxAbort.signal}).then(async r=>{
       const box=r.ok?await r.json():null;
       if (box && /^[A-F0-9]{48}$/.test(box.write)) {
         writer=endpoint.href+'/write/'+box.write;
@@ -125,7 +125,7 @@ export function startRun({source,version=10,files={},onEvent}) {
     frame.onload=()=>{
       if (finished) return;
       const bundle=data.slice(0);
-      const payload={source,files:Object.fromEntries(extra),bundle,readUrl};
+      const payload={source,files:Object.fromEntries(extra),bundle,readUrl,stdin};
       frame.contentWindow.postMessage({workerCode:'('+workerMain.toString()+')()',payload},'*',[channels.port2,bundle]);
     };
     frame.srcdoc='<meta http-equiv="Content-Security-Policy" content="'+csp+'"><script>('+sandboxFrame.toString()+')()</script>';

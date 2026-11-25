@@ -2,7 +2,8 @@
 export function workerMain() {
   self.onmessage = async ({data,ports}) => {
     self.onmessage = null;
-    const {bundle,source,files,readUrl,shared} = data;
+    const {bundle,source,files,readUrl,shared,stdin} = data;
+    let nextLine = 0;
     const emit = ports[0].postMessage.bind(ports[0]);
     const decoder = new TextDecoder();
     let count = 0, pending = '', last = 0, wasError = false;
@@ -20,6 +21,7 @@ export function workerMain() {
       if (pending.length >= 2048 || performance.now()-last > 35 || !last) flush();
     }
     function input() {
+      if (stdin) return stdin[nextLine++] ?? null;
       flush(); emit({type:'input'});
       if (shared) {
         const control=new Int32Array(shared,0,2);
