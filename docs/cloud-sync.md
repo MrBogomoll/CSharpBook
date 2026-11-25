@@ -10,13 +10,35 @@
 
 На Android можно нажать «Начать с телефона», создать файл телефона в Google Диске под предложенным именем и сразу сохранять в него прогресс. На Windows выбери ту же папку через «Google Диск для компьютеров» и запусти синхронизацию. Когда появится файл ПК, на Android нажми «Подключить файл ПК» и выбери его. Теперь обе стороны автоматически получают изменения. Если файл ПК уже есть, на Android доступно «Связать с файлом ПК».
 
-Для прямого входа через аккаунт издатель регистрирует клиентов в Google Auth Platform.
+### Регистрация Sharpwise для входа через Google
 
-1. В Google Cloud включи Google Drive API. В Google Auth Platform укажи сведения о приложении, аудиторию и разрешение `https://www.googleapis.com/auth/drive.appdata`. Для тестовой регистрации добавь тестовые аккаунты.
-2. Создай OAuth-клиенты Windows и Android в **одном проекте**. Для Windows выбери тип Desktop app. Для Android используй пакет `ru.csharpbook.reader.preview` и SHA-1 сертификата `12:96:9B:59:03:C2:95:B5:F8:79:E1:7D:53:32:22:99:09:1F:94:A4`. Эти параметры общие для беты и стабильной Sharpwise.
-3. В конфигурации Windows укажи идентификатор desktop-клиента и значение desktop client secret, если его выдал Google. В конфигурации Android включи `googleAndroidConfigured` после регистрации пакета. Вход на телефоне выполняют сервисы Google Play. При выпуске для всех пользователей переключи аудиторию приложения из тестовой в рабочую.
+Эти действия один раз выполняет владелец приложения. После регистрации и выпуска обновления читатель нажимает **«Подключить Google Диск»** на телефоне и ПК и выбирает один и тот же аккаунт. Sharpwise сам создаёт файлы прогресса в закрытой папке приложения.
 
-[Папка приложения в Google Drive](https://developers.google.com/workspace/drive/api/guides/appdata) · [OAuth для настольных приложений](https://developers.google.com/identity/protocols/oauth2/native-app)
+1. Открой [Google Cloud](https://console.cloud.google.com/). В переключателе проектов выбери **Sharpwise**. Если проекта ещё нет, нажми **New project**, введи `Sharpwise` и после создания выбери его.
+2. В библиотеке **APIs & Services → Library** найди **Google Drive API** и нажми **Enable**. Перейди в **Google Auth Platform**. При первом запуске нажми **Get started**, введи название `Sharpwise` и свою почту для поддержки и уведомлений. Для личного аккаунта выбери аудиторию **External**.
+3. Для проверки на своём телефоне открой **Audience → Test users → Add users** и добавь Google-аккаунт, с которым собираешься войти в Sharpwise. На странице **Data Access → Add or remove scopes** добавь доступ к данным самого приложения. Значение для поиска можно скопировать.
+
+   ```text
+   https://www.googleapis.com/auth/drive.appdata
+   ```
+
+4. Открой **Clients → Create client → Android**. Введи название `Sharpwise Android`. В поле **Package name** вставь имя пакета.
+
+   ```text
+   ru.csharpbook.reader.preview
+   ```
+
+   В поле **SHA-1 certificate fingerprint** вставь отпечаток и нажми **Create**. Он подходит и для беты, и для стабильной версии.
+
+   ```text
+   12:96:9B:59:03:C2:95:B5:F8:79:E1:7D:53:32:22:99:09:1F:94:A4
+   ```
+
+5. В том же проекте выбери **Clients → Create client → Desktop app**, введи `Sharpwise Windows` и нажми **Create**. Для подготовки сборки скопируй публичный **Client ID** из карточки **Sharpwise Windows**. Его адрес заканчивается на `.apps.googleusercontent.com`. Возможный **Client secret** хранится отдельно в локальных параметрах сборки Windows.
+
+После регистрации Android-клиента включи `googleAndroidConfigured` в параметрах сборки. Для Windows укажи публичный идентификатор в `googleDesktopClientId`. Когда приложение готово для других аккаунтов, настрой публикацию в разделе **Audience**.
+
+[Создание клиентов Android и Desktop](https://developers.google.com/workspace/guides/create-credentials) · [Папка приложения в Google Drive](https://developers.google.com/workspace/drive/api/guides/appdata) · [Вход на Windows](https://developers.google.com/identity/protocols/oauth2/native-app)
 
 ## Яндекс Диск
 
