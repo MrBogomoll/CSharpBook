@@ -36,6 +36,10 @@
 :is(#book,:root) .cx-console .cx-termbar{background:#23222d;justify-content:flex-start}
 :is(#book,:root) .cx-console .cx-term-status{display:flex;align-items:center;gap:5px;margin-left:auto;font-size:11px;color:#ccc7d5;white-space:nowrap}
 :is(#book,:root) .cx-console .cx-term-status svg{width:13px;height:13px}
+:is(#book,:root) .cx-console .cx-product .cx-termbar{height:auto;min-height:43px;flex-wrap:wrap;gap:3px 8px;padding-block:3px}
+:is(#book,:root) .cx-console .cx-product .cx-clear{display:inline-flex;align-items:center;gap:5px;margin-left:auto;min-height:32px;padding:4px 7px;border:1px solid #686478;border-radius:5px;color:#e2dcec;font-size:12px}
+:is(#book,:root) .cx-console .cx-clear svg{width:15px;height:15px}
+@media(pointer:coarse){:is(#book,:root) .cx-console .cx-product .cx-clear{min-height:44px}}
 :is(#book,:root) .cx-console .cx-term-status.ok{color:#a4dfbf}:is(#book,:root) .cx-console .cx-term-status.fail{color:#ffa9b8}
 :is(#book,:root) .cx-console .cx-result{padding:16px 15px;min-height:110px;overflow-wrap:anywhere;font-size:13px}
 :is(#book,:root) .cx-console .cx-product .cx-idle{color:#b5afbf;font-size:13px;max-width:34ch;line-height:1.55}

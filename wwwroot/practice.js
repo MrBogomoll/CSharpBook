@@ -47,7 +47,8 @@ function exerciseView(lesson,task) {
     '<section class="cs-reading cp-widget" data-exercise="'+esc(task.id)+'"><p class="practice-instruction" data-note-anchor="instruction">'+formatText(task.instruction)+'</p>'+
     (task.stdin?.length?'<p>Данные для проверки по порядку: '+task.stdin.map(x=>'<code>'+esc(x||'пустая строка')+'</code>').join(', ')+'.</p>':'')+
     syntaxGuide(lesson,true)+gapHint+fileTabs+(predict?prediction:codeArea)+'<div class="cp-runbar">'+button('run-draft',icon(predict?'check':'play')+(predict?'Проверить ответ':'Запустить код'),'cp-run')+
-    (predict?'':button('stop-draft',icon('square')+'Остановить','cs-tool','hidden'))+'</div><div class="cp-console"><strong>'+(predict?'Проверка ответа':'Результат запуска')+'</strong>'+
+    (predict?'':button('stop-draft',icon('square')+'Остановить','cs-tool','hidden'))+'</div><div class="cp-console"><div class="cp-result-head"><strong>'+(predict?'Проверка ответа':'Результат запуска')+'</strong>'+
+    (predict?'':button('clear-draft-output',icon('eraser')+'Очистить вывод','cp-clear','disabled'))+'</div>'+
     '<div class="cp-response" role="status" aria-live="polite"><p class="cp-status">'+(exerciseDone(lesson,task)?'Упражнение решено.':predict?'Здесь появится результат проверки.':'Здесь появится вывод твоей программы.')+'</p></div>'+
     (predict?'':'<form class="cp-input" hidden><input aria-label="Ввод для программы" autocomplete="off" placeholder="Введи строку для программы"><button type="submit">Отправить</button></form>')+'</div>'+
     (predict?'<details><summary>Разбор ответа</summary>'+copyable(task.output)+(task.explanation?'<p>'+formatText(task.explanation)+'</p>':'')+'</details>':'<details><summary>Сверить ожидаемый вывод</summary>'+copyable(task.output)+'</details><details><summary>Посмотреть решение</summary>'+reference+'</details>')+
@@ -57,12 +58,24 @@ function showExerciseResult() {
   const run=exerciseRuns.get(readerKey);
   const widget=reader.querySelector('.cp-widget');
   if(!run||!widget)return;
-  widget.querySelector('.cp-response').innerHTML=(run.output?'<pre class="cp-output">'+esc(run.output)+'</pre>':'')+
+  const visibleOutput=run.output.slice(run.visibleFrom);
+  const clear=widget.querySelector('.cp-clear');
+  if(clear)clear.disabled=!visibleOutput && !(run.error && !run.running);
+  widget.querySelector('.cp-response').innerHTML=(visibleOutput?'<pre class="cp-output">'+esc(visibleOutput)+'</pre>':'')+
     '<p class="cp-status'+(run.error?' cp-problem':'')+'">'+esc(run.status)+'</p>';
   widget.querySelector('[data-action="run-draft"]').disabled=run.running;
   const stop=widget.querySelector('[data-action="stop-draft"]'), form=widget.querySelector('.cp-input');
   if(stop)stop.hidden=!run.running;
   if(form){form.hidden=!run.awaiting;if(form.elements[0].value!==run.input)form.elements[0].value=run.input;}
+}
+function clearExerciseOutput() {
+  const run=exerciseRuns.get(readerKey);
+  if(!run)return;
+  // Grading uses the complete transcript, including text cleared while waiting for input.
+  run.visibleFrom=run.output.length;
+  if(!run.running && run.error){run.error=false;run.status='Вывод очищен.';}
+  showExerciseResult();
+  if(run.awaiting)reader.querySelector('.cp-input input')?.focus({preventScroll:true});
 }
 function refreshStepMarks() {
   const nav=reader.querySelector('.study-steps');
@@ -85,7 +98,7 @@ async function runExercise() {
   if(!task)return;
   const key=exercisePath(lesson,task);
   if(exerciseRuns.get(key)?.running)return;
-  const run={running:false,awaiting:false,output:'',status:'',input:'',error:false,handle:null};
+  const run={running:false,awaiting:false,output:'',visibleFrom:0,status:'',input:'',error:false,handle:null};
   exerciseRuns.set(key,run);
   if(task.answerMode==='output')return checkExercise(lesson,task,run,reader.querySelector('.prediction-answer').value);
   const {'Program.cs':source,...files}=exerciseFiles(lesson,task);
