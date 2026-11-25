@@ -8,14 +8,15 @@
     <AssemblyName>CSharpBook</AssemblyName>
     <Product>Учебник C#</Product>
     <ApplicationIcon>book.ico</ApplicationIcon>
-    <Version>0.2.0</Version>
-    <InformationalVersion>0.2.0</InformationalVersion>
+    <Version>0.3.0</Version>
+    <InformationalVersion>0.3.0</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-    <AssemblyVersion>0.2.0.0</AssemblyVersion>
-    <FileVersion>0.2.0.0</FileVersion>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
+    <FileVersion>0.3.0.0</FileVersion>
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Condition="'$(CloudSyncConfig)' != ''" Include="$(CloudSyncConfig)" LogicalName="CSharpBook.CloudSync.json" />
     <EmbeddedResource Include="ApplyUpdate.ps1" LogicalName="CSharpBook.ApplyUpdate.ps1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4370.26" />
     <Compile Include="../runner/InputRoutes.cs" Link="InputRoutes.cs" />

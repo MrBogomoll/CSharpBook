@@ -5,6 +5,7 @@ let chapters = [], lessons = [];
 const state = {page:'home',lesson:'',step:'',taskFile:'Program.cs',example:0,read:[],saved:[],expanded:[0],started:false};
 let feedback='', menuOpen=false, hideExampleOutput=false, selectedFile='Program.cs';
 let detachHints=null;
+let cloudSync=null;
 let scrollTimer=null;
 const pagePositions=new Map();
 if ('scrollRestoration' in history) history.scrollRestoration='manual';
@@ -44,9 +45,10 @@ function syncMarks() {
 }
 function settingsView() {
   const theme=store.get('theme','auto');
-  return '<main class="settings-view"><h1>Настройки</h1><p>Учебник C# · Версия 0.2.0</p><fieldset><legend>Оформление учебника</legend>'+
+  return '<main class="settings-view"><h1>Настройки</h1><p>Учебник C# · Версия 0.3.0</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
-    '</fieldset><h2>Мой прогресс</h2><p>Прочитано '+state.read.length+' из '+lessons.length+' глав. Закладки, место остановки и черновики сохраняются в этом браузере.</p>'+
+    '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
+    '<section id="book-cloud-sync" hidden></section>'+
     '<section id="book-updates"><h2>Обновление приложения</h2><button type="button" class="cs-tool" id="book-update-button">Обновить версию</button><p id="book-update-status" role="status" aria-live="polite"></p></section>'+
     (store.warning?'<p role="alert">'+esc(store.warning)+'</p>':'')+
     button('exit',icon('log-out')+'Выйти из приложения','cs-tool')+'</main>';
@@ -93,9 +95,10 @@ function route() {
     const index=destination==='lesson'?chapterIndex(arg):Number(arg);
     if(!state.expanded.includes(index))state.expanded.push(index);
   }
+  if(!isReading)restoreReadingRoute();
   state.page=destination;
   if(destination==='exit'){split=false;for(const run of exerciseRuns.values())stopExercise(run);exerciseRuns.clear();for(const tab of consoleTabs.values())tab.cleanup?.();consoleTabs.clear();consolePages.replaceChildren();activeConsole='';}
-  render(changed||!!pendingNote);
+  render(changed||!!pendingNote||(isReading&&!['lesson','chapter'].includes(previous)));
   if(isReading&&(changed||previous!==destination||pendingNote)){
     primary.scrollTop=store.get('position/'+positionKey(),0);revealNote();
   }else if(!isReading&&destination!=='console'&&destination!==previous)primary.scrollTop=pagePositions.get(destination)||0;
@@ -103,7 +106,7 @@ function route() {
 function sidebar(){
   return '<aside aria-label="Содержание" class="cs-side'+(menuOpen?' open':'')+'"><div class="cs-side-title">Содержание</div><div class="cs-sections">'+contents()+'</div><div class="cs-progress">Прочитано <strong>'+state.read.length+' из '+lessons.length+' глав</strong><div class="cs-progress-track"><i style="width:'+100*state.read.length/lessons.length+'%"></i></div></div></aside>';
 }
-function refreshMarks() {
+function refreshMarks(updatePage=true) {
   const side=reader.querySelector('.cs-side');
   if(side)side.outerHTML=sidebar();
   if(readerKey.startsWith('lesson/')){
@@ -126,7 +129,7 @@ function refreshMarks() {
       if(topic)link.innerHTML=icon(state.read.includes(topic.id)?'circle-check':'circle')+esc(topic.title);
     }
   }
-  render();
+  if(updatePage)render();
 }
 function paintReader() {
   const lesson=findLesson(state.lesson);
@@ -162,7 +165,10 @@ function render(forceReader=false) {
     if(page==='choose')auxiliary.innerHTML=choosePaneView();
     if(page==='home')auxiliary.innerHTML='<main class="cs-home">'+homeView(lesson)+'</main>';
     if(page==='saved')auxiliary.innerHTML='<main class="cs-home">'+bookmarkedPage(lesson)+'</main>';
-    if(page==='settings')auxiliary.innerHTML=settingsView();
+    if(page==='settings'){
+      auxiliary.innerHTML=settingsView();
+      cloudSync?.mount(auxiliary.querySelector('#book-cloud-sync'));
+    }
     if(page==='exit')auxiliary.innerHTML='<main class="settings-view"><h1>До встречи!</h1><p>'+esc(store.warning||'Прогресс сохранён. Можно закрыть приложение.')+'</p>'+button('go:home','Вернуться в учебник','cs-tool')+'</main>';
   }
   root.querySelector('#book-header').hidden=page==='exit'||page==='choose';root.querySelector('#book-bottom').hidden=page==='exit'||secondaryPane;
@@ -241,7 +247,69 @@ root.addEventListener('submit',e=>{
   if(!run?.awaiting)return;
   const input=e.target.querySelector('input');run.awaiting=false;run.status='Программа выполняется…';run.handle?.sendInput(input.value);run.input='';showExerciseResult();
 });
-window.addEventListener('book-storage',e=>{if(e.detail==='theme')applyTheme();if(e.detail.startsWith('solved/'))refreshStepMarks();if(/^(read|saved)\//.test(e.detail)){syncMarks();refreshMarks();}if(e.detail.startsWith('note/')){decorateNoteMarks();if(state.page==='saved')render();else glyphs();}});
+function restoreReadingRoute() {
+  const route=store.get('last-reading',null);
+  if(typeof route!=='string')return;
+  const [page,id,step]=route.split('/');
+  if(page==='lesson'){
+    const lesson=findLesson(id);
+    if(!lesson || (step&&!lesson.exercises.some(task=>task.id===step)))return;
+    state.lesson=id;
+    state.example=Math.max(0,Math.min(lesson.examples.length-1,store.get('example/'+id,0)));
+  }else if(page!=='chapter'||!/^\d+$/.test(id)||!chapters[Number(id)])return;
+  lastReading=route;state.started=true;
+}
+
+function refreshCloudChanges(changes) {
+  if(!reader || !changes.length)return;
+  const keys=new Set(changes), page=state.page;
+  const reading=page==='lesson'||page==='chapter';
+  if(!reading && keys.has(store.scoped('last-reading')))restoreReadingRoute();
+  const marks=changes.some(key=>/^(read|saved)\//.test(key));
+  if(marks){
+    syncMarks();refreshMarks(false);
+    const count=document.getElementById('book-read-count');
+    if(count)count.textContent=state.read.length;
+  }
+  if(changes.some(key=>key.startsWith('solved/')))refreshStepMarks();
+  if(changes.some(key=>key.startsWith('note/')))decorateNoteMarks();
+  updateSyncedConsoles(keys);
+  if(page==='home'||page==='saved'){render();return;}
+  if(reading){
+    const task=activeTask(), area=reader.querySelector('.cs-draft,.prediction-answer');
+    if(task && area){
+      const lesson=findLesson(state.lesson);
+      const key=draftKey(lesson,task,task.answerMode==='output'?'Program.cs':state.taskFile);
+      if(keys.has(store.scoped(key))){
+        const value=store.get(key,'');
+        if(typeof value==='string'&&area.value!==value){
+          const {selectionStart,selectionEnd,selectionDirection,scrollTop}=area;
+          area.value=value;
+          area.setSelectionRange(selectionStart,selectionEnd,selectionDirection);
+          area.scrollTop=scrollTop;
+        }
+      }
+    }else if(page==='lesson' && keys.has(store.scoped('answer/'+state.lesson))) {
+      // The theory view has no editable code. Repaint its quiz after receiving the answer.
+      paintReader();
+    }
+  }
+  glyphs();
+}
+function describeSyncKey(key) {
+  const [kind, id, step, file]=key.replace(/^secondary\//,'').split('/');
+  const lesson=findLesson(id), exercise=lesson?.exercises.find(item=>item.id===step);
+  if(kind==='draft')return [lesson?.title || id,exercise?.title || 'Упражнение',file || 'Program.cs'].join(' · ');
+  if(kind==='editor')return [lesson?.title || 'Консоль', lesson?.examples[Number(step)]?.name || 'Черновик'].join(' · ');
+  if(kind==='scratch')return 'Программа '+id;
+  if(kind==='snippet')return [lesson?.title || id, 'Фрагмент кода'].join(' · ');
+  if(kind==='note')return 'Заметка';
+  return key;
+}
+window.addEventListener('book-storage',event=>{
+  if(event.detail==='theme')applyTheme();
+  if(/^(secondary\/)?(last-reading$|read\/|saved\/|solved\/|note\/|answer\/|draft\/|scratch\/|editor\/|snippet\/)/.test(event.detail)) refreshCloudChanges([event.detail]);
+});
 function migrateLoopExample() {
   if(store.get('migrated-loop-example',false))return;
   const oldKey='editor/while-foreach/0', newKey='editor/while-loop/0', draft=store.get(oldKey,null);
@@ -273,7 +341,20 @@ async function boot() {
   }
   createWorkspace();setupNotes();window.addEventListener('hashchange',route);route();
   if(secondaryPane)parent.secondaryReady(window);
-  else if ('serviceWorker' in navigator && !window.chrome?.webview && !navigator.userAgent.includes('CSharpBookAndroid/')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  else {
+    import('./sync-ui.js').then(({startCloudSync})=>startCloudSync({
+      store, label:window.chrome?.webview?'ПК':navigator.userAgent.includes('Android')?'Android':'Браузер', refresh:refreshCloudChanges, describeKey:describeSyncKey
+    })).then(controller=>{
+      cloudSync=controller;
+      cloudSync?.mount(document.getElementById('book-cloud-sync'));
+    }).catch(error=>{
+      const section=document.getElementById('book-cloud-sync');
+      if(section){section.hidden=false;section.textContent='Синхронизация недоступна. '+error.message;}
+      console.error('Cloud sync',error);
+    });
+    if('serviceWorker' in navigator && !window.chrome?.webview && !navigator.userAgent.includes('CSharpBookAndroid/'))
+      navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
 }
 boot().catch(e=>{root.innerHTML='<main class="loading" role="alert"><h1>Учебник не открылся</h1><p>'+esc(e.message)+'</p><button onclick="location.reload()">Попробовать снова</button></main>';});
 

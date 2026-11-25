@@ -14,6 +14,7 @@ public final class BookActivity extends Activity {
     private WebView web;
     private BookServer server;
     private BookUpdater updater;
+    private CloudBridge cloud;
     private String pending, origin;
 
     @Override public void onCreate(Bundle state) {
@@ -43,6 +44,7 @@ public final class BookActivity extends Activity {
         systemBars();
         WebSettings settings = web.getSettings();
         updater = new BookUpdater(this);
+        cloud = new CloudBridge(this, origin);
         settings.setUserAgentString(settings.getUserAgentString() + " CSharpBookAndroid/1");
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -78,11 +80,13 @@ public final class BookActivity extends Activity {
                 Uri uri=Uri.parse(url);
                 if (local(uri) && "exit".equals(uri.getFragment())) view.post(() -> finish());
             }
+            @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon) { cloud.unbind(); }
             @Override public void onPageFinished(WebView view,String url) {
                 if (!local(Uri.parse(url))) return;
                 // Older app versions registered an offline worker even in the native reader.
                 view.evaluateJavascript("if(navigator.serviceWorker){navigator.serviceWorker.getRegistrations().then(async r=>{if(r.length){await Promise.all(r.map(w=>w.unregister()));location.reload()}})}", null);
                 updater.status();
+                cloud.bind(view, url);
             }
             @Override public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
                 if (!isFinishing()) recreate();
@@ -91,6 +95,10 @@ public final class BookActivity extends Activity {
         });
         web.setDownloadListener((url,agent,disposition,mime,length) -> export(Uri.parse(url)));
         if (state == null || web.restoreState(state) == null) web.loadUrl(origin + "/");
+    }
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (cloud != null) cloud.redirect(intent);
     }
     private void systemBars() {
         boolean light = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
@@ -131,6 +139,7 @@ public final class BookActivity extends Activity {
     }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if (cloud != null && cloud.activityResult(request,result,data)) return;
         if (request == BookUpdater.INSTALL || request == BookUpdater.PERMISSION) {
             if (updater != null) updater.result(request,result);
             return;
@@ -171,9 +180,10 @@ public final class BookActivity extends Activity {
         state.putString("project",pending);
         if (web!=null) web.saveState(state);
     }
-    @Override protected void onPause() { if (web!=null) web.onPause(); super.onPause(); }
-    @Override protected void onResume() { super.onResume(); if (web!=null) web.onResume(); }
+    @Override protected void onPause() { if (cloud!=null) cloud.pause(); if (web!=null) web.onPause(); super.onPause(); }
+    @Override protected void onResume() { super.onResume(); if (web!=null) web.onResume(); if (cloud!=null) cloud.resume(); }
     @Override protected void onDestroy() {
+        if (cloud != null) cloud.close();
         if (web!=null) {
             if (web.getParent() instanceof ViewGroup) ((ViewGroup)web.getParent()).removeView(web);
             web.destroy(); web=null;

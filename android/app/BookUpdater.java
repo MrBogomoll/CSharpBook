@@ -129,6 +129,10 @@ final class BookUpdater {
             throw new IOException("Имя приложения, подпись или номер версии APK не совпали с выпуском.");
     }
     void start() {
+        if (!BuildConfig.PRODUCTION_UPDATES) {
+            state("Тестовая сборка обновляется вручную.", false);
+            return;
+        }
         if (busy) return;
         state("Проверяем последний выпуск…", true);
         new Thread(() -> {

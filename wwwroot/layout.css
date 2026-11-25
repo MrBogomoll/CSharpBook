@@ -59,3 +59,14 @@ a { color:var(--cs-violet); }
 #book .version-label{font-size:11px;white-space:nowrap;font-weight:400;color:#bbb8cb;}
 #book .cs-product .sample-input,#book .cs-product .lesson-note { font-size:13px; color:var(--cs-weak); line-height:1.55; margin:8px 0; }
 #book .sample-input kbd { padding:2px 6px; border-radius:4px; background:var(--cs-hover); color:var(--cs-ink); }
+
+#book #book-cloud-sync .sync-actions { display:flex; flex-wrap:wrap; gap:8px; }
+#book #book-cloud-sync p:empty { display:none; }
+#book #book-cloud-sync button:disabled { opacity:.55; }
+#book #book-cloud-sync .sync-status { margin-top:8px; }
+#book .sync-conflicts details { margin:10px 0; padding:12px; border:1px solid var(--cs-line); border-radius:8px; }
+#book .sync-conflicts summary { cursor:pointer; }
+#book .sync-conflicts strong { display:block; margin-top:12px; }
+#book .sync-conflicts pre { max-height:14rem; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+#book #book-cloud-sync .sync-more, #book #book-cloud-sync .sync-transfer { margin:12px 0; }
+#book .sync-transfer summary { cursor:pointer; }

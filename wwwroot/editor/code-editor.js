@@ -49,6 +49,7 @@ export function createCodeEditor(host, panel, file, source, onChange, onRun, pro
   const documents = new Map();
   let name = file;
   let markKey = '';
+  let receiving = false;
   let completions;
   function close() {completions?.close();}
   function buildState(text) {
@@ -59,7 +60,7 @@ export function createCodeEditor(host, panel, file, source, onChange, onRun, pro
       EditorView.contentAttributes.of({class: 'cx-input', 'aria-label': 'Код C#, ' + name,
         'aria-keyshortcuts': 'Control+Enter Meta+Enter', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: 'false'}),
       EditorView.updateListener.of(update => {
-        if (update.docChanged) { markKey = ''; onChange(name, update.state.doc.toString()); }
+        if (update.docChanged) { markKey = ''; if (!receiving) onChange(name, update.state.doc.toString()); }
         if (update.docChanged || update.selectionSet) completions?.suggest();
       }),
       EditorState.phrases.of({'line number': 'Номер строки', 'Control character': 'Управляющий символ'})
@@ -81,6 +82,21 @@ export function createCodeEditor(host, panel, file, source, onChange, onRun, pro
 
   return {
     close, select, replace,
+    updateFile(fileName, text) {
+      if (fileName !== name) {
+        if (documents.get(fileName)?.doc.toString() !== text) documents.delete(fileName);
+        return;
+      }
+      if (view.state.doc.toString() === text) return;
+      const {anchor, head} = view.state.selection.main;
+      receiving = true;
+      try {
+        view.dispatch({
+          changes: {from:0, to:view.state.doc.length, insert:text},
+          selection:{anchor:Math.min(anchor,text.length), head:Math.min(head,text.length)}
+        });
+      } finally { receiving = false; }
+    },
     switchFile(next, text) {
       if (name === next) return;
       documents.set(name, view.state);

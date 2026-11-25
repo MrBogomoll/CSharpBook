@@ -10,7 +10,7 @@ class PaneStore extends BookStore {
   set(key,value){super.set(this.scoped(key),value);}
 }
 let primary, reader, auxiliary, workspace, dock, divider, dockTabs, consolePages, consolePanel;
-let secondaryFrame, readyFrame, pendingExample;
+let secondaryFrame, readyFrame, pendingExample, storedPrograms;
 let split=false, activeConsole='', lastReading='', readerKey='';
 const consoleTabs=new Map();
 const stackMedia=matchMedia('(max-width: 680px) and (orientation: portrait)');
@@ -34,6 +34,7 @@ function createWorkspace() {
   }
   root.innerHTML='<div id="book-header"></div><div id="book-workspace"><div id="book-left"><div id="book-primary"><div id="reader-view" hidden></div><div id="aux-view"></div></div>'+
     '<section id="book-console" aria-label="Консоль" hidden><div class="dock-toolbar"><div id="dock-tabs" aria-label="Открытые программы"></div>'+
+    '<select id="stored-programs" aria-label="Открыть сохранённую программу" hidden></select>'+
     button('new-console',icon('plus'),'dock-icon','aria-label="Новая консоль" title="Новая консоль"')+'</div><div id="editor-host"></div></section></div>'+
     '<div id="book-divider" role="separator" tabindex="0" aria-label="Размер панелей" aria-controls="book-left book-dock" aria-valuemin="25" aria-valuemax="75" hidden></div>'+
     '<section id="book-dock" aria-label="Вторая панель" hidden></section></div><div id="book-bottom"></div>';
@@ -42,6 +43,18 @@ function createWorkspace() {
   dock=root.querySelector('#book-dock');divider=root.querySelector('#book-divider');
   consolePanel=root.querySelector('#book-console');
   dockTabs=root.querySelector('#dock-tabs');consolePages=root.querySelector('#editor-host');
+  storedPrograms=root.querySelector('#stored-programs');
+  storedPrograms.onchange=()=>{
+    const key=storedPrograms.value;
+    const saved=store.values.get(key);
+    if(saved){
+      const unscoped=key.replace(/^secondary\//,'');
+      const lesson=findLesson(unscoped.split('/')[1]);
+      addConsole({...saved, key:unscoped, storageKey:key, version:lesson?.version||10, topicId:lesson?.id||state.lesson,
+        topicTitle:lesson?.title||'',exampleTitle:describeSyncKey(key)});
+    }
+    storedPrograms.selectedIndex=0;
+  };
   primary.addEventListener('scroll',()=>{
     clearTimeout(scrollTimer);
     scrollTimer=setTimeout(keepReadingPosition,250);
@@ -85,6 +98,30 @@ function createWorkspace() {
     if(delta){event.preventDefault();resize(Number(divider.getAttribute('aria-valuenow'))+delta,true);}
   });
 }
+function refreshStoredPrograms() {
+  const drafts=[...store.values].filter(([key,value])=>
+    /^(secondary\/)?(editor|scratch|snippet)\//.test(key) && typeof value?.source==='string' &&
+    ![...consoleTabs.values()].some(tab=>(tab.entry.storageKey||store.scoped(tab.entry.key))===key));
+  storedPrograms.hidden=!drafts.length;
+  storedPrograms.replaceChildren(new Option('Открыть программу…',''));
+  for(const [key] of drafts){
+    const label=describeSyncKey(key)+(key.startsWith('secondary/')?' · Вторая панель':'');
+    storedPrograms.add(new Option(label,key));
+  }
+}
+function updateSyncedConsoles(keys) {
+  for(const tab of consoleTabs.values()) {
+    const storageKey=tab.entry.storageKey||store.scoped(tab.entry.key);
+    if(!keys.has(storageKey))continue;
+    const draft=store.values.get(storageKey);
+    if(!draft || typeof draft.source!=='string')continue;
+    tab.entry={...tab.entry,...draft};
+    store.set('tab/'+tab.entry.key,tab.entry);
+    if(activeConsole===tab.entry.key)store.set('console',tab.entry);
+    tab.cleanup?.updateFiles(draft);
+  }
+  if(state.page==='console')refreshStoredPrograms();
+}
 function paintConsoleTabs() {
   dockTabs.replaceChildren();
   for(const [key,tab] of consoleTabs) {
@@ -95,6 +132,7 @@ function paintConsoleTabs() {
     close.textContent='×';close.setAttribute('aria-label','Закрыть вкладку «'+select.textContent+'»');close.onclick=()=>closeConsole(key);
     group.append(select,close);dockTabs.append(group);
   }
+  refreshStoredPrograms();
 }
 function selectConsole(key) {
   const tab=consoleTabs.get(key);
@@ -121,7 +159,9 @@ function closeConsole(key) {
   rememberTabs();paintConsoleTabs();
 }
 function addConsole(entry) {
-  const key=entry.key;
+  const storageKey=entry.storageKey||store.scoped(entry.key);
+  const key=storageKey===store.scoped(storageKey.replace(/^secondary\//,''))?storageKey.replace(/^secondary\//,''):'linked/'+storageKey;
+  entry={...entry,...store.values.get(storageKey),key,storageKey};
   if(consoleTabs.has(key)){selectConsole(key);return;}
   const host=document.createElement('div');host.className='cs-console-page';
   consolePages.append(host);
@@ -129,9 +169,9 @@ function addConsole(entry) {
   selectConsole(key);
   import('./console.js').then(({mountConsole})=>{
     if(consoleTabs.get(key)!==tab)return;
-    tab.cleanup=mountConsole(host,{...entry,showHeader:false,onBack:resumeReading,onChange:(source,files)=>{
+    tab.cleanup=mountConsole(host,{...tab.entry,showHeader:false,onBack:resumeReading,onChange:(source,files)=>{
       tab.entry={...tab.entry,source,files};
-      store.set(key,{source,files});store.set('tab/'+key,tab.entry);
+      BookStore.prototype.set.call(store,storageKey,{source,files});store.set('tab/'+key,tab.entry);
       if(activeConsole===key)store.set('console',tab.entry);
     }});
   }).catch(e=>{host.textContent='Не удалось открыть консоль. '+e.message;});
@@ -148,7 +188,8 @@ function ensureConsole() {
 }
 function newConsole() {
   const number=store.get('console-sequence',0)+1;store.set('console-sequence',number);
-  addConsole({key:'scratch/'+number,source:'',files:{},version:10,topicId:state.lesson,topicTitle:'',exampleTitle:'Программа '+number});
+  const identity=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint32Array(4)),n=>n.toString(16)).join('-');
+  addConsole({key:'scratch/'+number+'/'+identity,source:'',files:{},version:10,topicId:state.lesson,topicTitle:'',exampleTitle:'Программа '+number});
 }
 function secondaryHeader(reading) {
   const current=reading?'reader':state.page;

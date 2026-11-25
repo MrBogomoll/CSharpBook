@@ -1,0 +1,75 @@
+plugins {
+    id 'com.android.application' version '9.0.1'
+}
+
+def webRoot = file(providers.gradleProperty('webRoot').getOrElse('../wwwroot'))
+def localConfig = file('cloud-sync.json')
+def cloudConfig = file(providers.gradleProperty('cloudConfig').getOrElse(
+        localConfig.isFile() ? 'cloud-sync.json' : 'cloud-sync.example.json'))
+if (providers.gradleProperty('outputDir').isPresent()) {
+    layout.buildDirectory.set(file(providers.gradleProperty('outputDir').get()))
+}
+def stagedAssets = layout.buildDirectory.dir('generated/bookAssets')
+def stageAssets = tasks.register('stageBookAssets', Sync) {
+    into stagedAssets
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(webRoot) { into 'www' }
+    from('LICENSE-NanoHTTPD.txt') { into 'licenses'; rename { 'NanoHTTPD.txt' } }
+    from(new File(webRoot.parentFile, 'host/licenses')) { into 'licenses' }
+    from(new File(webRoot.parentFile, 'licenses')) { into 'licenses' }
+    from(cloudConfig) { rename { 'cloud-sync.json' } }
+    doFirst {
+        if (!new File(webRoot, 'runtime/net11.bin').isFile()) {
+            throw new GradleException("Missing .NET 11 runtime in ${webRoot}")
+        }
+        if (!cloudConfig.isFile()) {
+            throw new GradleException("Missing cloud configuration: ${cloudConfig}")
+        }
+    }
+}
+
+def previewAssets = layout.buildDirectory.dir('generated/previewCloudAssets')
+def stagePreviewConfig = tasks.register('stagePreviewConfig', Sync) {
+    into previewAssets
+    from('cloud-sync.example.json') { rename { 'cloud-sync.json' } }
+}
+
+android {
+    namespace 'ru.csharpbook.reader'
+    compileSdk 36
+    buildToolsVersion '36.0.0'
+    defaultConfig {
+        applicationId 'ru.csharpbook.reader'
+        minSdk 28
+        targetSdk 35
+        manifestPlaceholders = [bookLabel: 'Учебник C#']
+        buildConfigField 'boolean', 'PRODUCTION_UPDATES', 'true'
+    }
+    buildFeatures { buildConfig = true }
+    buildTypes {
+        preview {
+            initWith release
+            applicationIdSuffix '.preview'
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['release']
+            manifestPlaceholders = [bookLabel: 'Учебник C# · Тест']
+            buildConfigField 'boolean', 'PRODUCTION_UPDATES', 'false'
+        }
+    }
+    sourceSets.main {
+        manifest.srcFile 'AndroidManifest.xml'
+        java.srcDirs = ['app']
+        res.srcDirs = ['res']
+        assets.srcDirs = [stagedAssets]
+    }
+    sourceSets.preview.assets.srcDirs = [previewAssets]
+    // BookServer serves byte ranges through AssetManager.openFd.
+    androidResources.noCompress.add('')
+}
+tasks.named('preBuild').configure { dependsOn stageAssets }
+tasks.matching { it.name == 'prePreviewBuild' }.configureEach { dependsOn stagePreviewConfig }
+
+dependencies {
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+    implementation 'com.google.android.gms:play-services-auth:21.5.1'
+}

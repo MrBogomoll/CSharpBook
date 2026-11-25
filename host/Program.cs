@@ -69,6 +69,7 @@ internal static class Program
     {
         private readonly WebView2 view = new() {Dock=DockStyle.Fill};
         private readonly string root;
+        private readonly CloudSync cloud;
         private WebApplication? phoneServer;
         private bool changing;
         private readonly CancellationTokenSource closing = new();
@@ -76,6 +77,7 @@ internal static class Program
         public BookWindow(string root, bool startLan)
         {
             this.root=root;
+            cloud = new CloudSync(this);
             Text="Учебник C#"; Width=1150; Height=850; MinimumSize=new Size(360,450);
             StartPosition=FormStartPosition.CenterScreen; Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             Controls.Add(view);
@@ -102,7 +104,17 @@ internal static class Program
                     };
                     core.WebMessageReceived+=async (_,e)=>{
                         if (!Local(e.Source)) return;
-                        var command=e.TryGetWebMessageAsString();
+                        string command;
+                        try { command=e.TryGetWebMessageAsString(); }
+                        catch (ArgumentException) { return; }
+                        if (command.StartsWith('{'))
+                        {
+                            if (new Uri(e.Source).AbsolutePath is not ("/" or "/index.html")) return;
+                            var reply = await cloud.Handle(command, closing.Token);
+                            if (reply != null && !closing.IsCancellationRequested && Local(core.Source))
+                                core.PostWebMessageAsJson(reply);
+                            return;
+                        }
                         if(command=="close"){Close();return;}
                         if(command=="update-start"){await UpdateBook();return;}
                         if(command=="lan-on"||command=="lan-off") await SetPhoneAccess(command=="lan-on");

@@ -61,6 +61,7 @@ function terminator(code) {
 export function mountConsole(container, options = {}) {
   let dispose = mountConsolePage(container,options);
   function cleanup() { dispose?.(); dispose = null; }
+  cleanup.updateFiles = draft => dispose?.updateFiles(draft);
   cleanup.openExample = example => {
     cleanup();
     dispose = mountConsolePage(container,{onBack:options.onBack, onChange:options.onChange, showHeader:options.showHeader, ...example});
@@ -344,7 +345,7 @@ function mountConsolePage(container, {
     }
   },{signal});
   drawFiles(); refresh(); icons();
-  return function cleanup() {
+  function cleanup() {
     if (signal.aborted) return;
     controller.abort(); serial++;
     cancelAnimationFrame(frame);
@@ -352,5 +353,20 @@ function mountConsolePage(container, {
     handle?.stop();
     editor.destroy();
     page.remove();
+  }
+  cleanup.updateFiles = draft => {
+    const next = new Map([[mainFile, draft.source], ...Object.entries(draft.files)]);
+    if (!next.has(current)) {
+      current = mainFile;
+      editor.switchFile(current, next.get(current));
+    }
+    codeFiles.clear();
+    for (const [name, text] of next) {
+      codeFiles.set(name, text);
+      editor.updateFile(name, text);
+    }
+    drawFiles();
+    scheduleRefresh();
   };
+  return cleanup;
 }
