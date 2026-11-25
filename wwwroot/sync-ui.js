@@ -1,6 +1,6 @@
 import {SyncEngine, isSyncKey} from './sync-engine.js';
 import {available, getStatus, connect, disconnect, getProvider, openExchangeFile, saveExchangeFile} from './sync-bridge.js';
-import {SyncSchedule, syncIntervals, syncPreferences} from './sync-schedule.js';
+import {SyncSchedule, parseCustomInterval, syncIntervals, syncPreferences, validIntervalPart} from './sync-schedule.js';
 
 const providers = {google: 'Google Диск', yandex: 'Яндекс Диск'};
 const preferencesKey = 'sync-auto-settings';
@@ -29,6 +29,7 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
   let disconnects = 0;
   let message = '';
   let preferences = syncPreferences(store.get(preferencesKey));
+  let intervalDraft = null;
   const schedule = new SyncSchedule(() => synchronize());
   let statusReady = false;
   let conflicts = [];
@@ -47,6 +48,15 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
   function configureSchedule(lastCheck) {
     schedule.configure(Boolean(provider), activePreferences(), lastCheck);
     updateAvailability();
+  }
+
+  function savePreferences(changes) {
+    const previous = preferences;
+    preferences = syncPreferences({...previous, ...changes});
+    store.set(preferencesKey, preferences);
+    configureSchedule();
+    if (preferences.onChange && (!previous.onChange || engine?.hasLocalChanges())) schedule.changed();
+    controls();
   }
 
   function controls() {
@@ -106,8 +116,17 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
     options.hidden = !providers[provider] || !statusReady || choosingService;
     options.elements.onChange.checked = preferences.onChange;
     options.elements.timer.checked = preferences.timer;
-    options.elements.minutes.value = String(preferences.minutes);
+    options.elements.minutes.value = intervalDraft ? 'custom' : String(preferences.minutes);
     options.querySelector('.sync-interval').hidden = !preferences.timer;
+    const form = options.querySelector('.sync-custom-interval');
+    form.hidden = !preferences.timer || options.elements.minutes.value !== 'custom';
+    if (!form.hidden) {
+      const total = preferences.customMinutes ?? preferences.minutes;
+      const hours = intervalDraft?.hours ?? String(Math.floor(total / 60));
+      const minutes = intervalDraft?.minutes ?? String(total % 60);
+      if (form.elements.customHours.value !== hours) form.elements.customHours.value = hours;
+      if (form.elements.customMinutes.value !== minutes) form.elements.customMinutes.value = minutes;
+    }
     options.querySelector('.sync-timer-hint').hidden = !preferences.timer;
     const status = settings.querySelector('.sync-status');
     if (status.textContent !== message) status.textContent = message;
@@ -169,21 +188,56 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
       '<label><input type="checkbox" name="timer"> По таймеру</label>' +
       '<label class="sync-interval">Интервал <select name="minutes">' +
       syncIntervals.map(minutes => '<option value="' + minutes + '">' + minutes + ' мин</option>').join('') +
-      '</select></label><small class="sync-timer-hint">Таймер работает, пока учебник открыт. Пропущенная проверка выполнится при возврате.</small></fieldset>' +
+      '<option value="custom">Свой интервал</option></select></label>' +
+      '<form class="sync-custom-interval" hidden novalidate>' +
+      '<label>Часы <input name="customHours" type="number" required min="0" max="99" step="1" inputmode="numeric" aria-describedby="sync-interval-feedback"></label>' +
+      '<label>Минуты <input name="customMinutes" type="number" required min="0" max="59" step="1" inputmode="numeric" aria-describedby="sync-interval-feedback"></label>' +
+      '<button type="submit" class="cs-tool">Сохранить интервал</button>' +
+      '<small id="sync-interval-feedback" role="status"></small></form>' +
+      '<small class="sync-timer-hint">Таймер работает, пока учебник открыт. Пропущенная проверка выполнится при возврате.</small></fieldset>' +
       '<p class="sync-status" role="status"></p><div class="sync-conflicts"></div>';
     settings.onclick = event => {
       const button = event.target.closest('[data-sync]');
       if (button && !busy && !button.disabled) handle(button.dataset.sync);
     };
-    settings.querySelector('.sync-options').onchange = event => {
+    const options = settings.querySelector('.sync-options');
+    const form = options.querySelector('.sync-custom-interval');
+    const feedback = form.querySelector('[role=status]');
+    const {customHours, customMinutes} = form.elements;
+    const readDraft = () => ({hours:customHours.value, minutes:customMinutes.value});
+    form.oninput = () => {
+      intervalDraft = readDraft();
+      feedback.textContent = '';
+    };
+    form.onsubmit = event => {
+      event.preventDefault();
+      if (!providers[provider] || form.hidden) return;
+      const minutes = parseCustomInterval(customHours.value, customMinutes.value);
+      if (minutes === null) {
+        feedback.textContent = 'Введи целое число часов от 0 до 99 и минут от 0 до 59. Минимальный интервал — 1 минута.';
+        (validIntervalPart(customHours.value, Number(customHours.max)) ? customMinutes : customHours).focus();
+        return;
+      }
+      intervalDraft = null;
+      if (preferences.minutes !== 'custom' || preferences.customMinutes !== minutes) {
+        savePreferences({minutes:'custom', customMinutes:minutes});
+      } else controls();
+      feedback.textContent = 'Интервал сохранён.';
+    };
+    options.onchange = event => {
       if (!providers[provider]) return;
       const {name, checked, value} = event.target;
-      const previous = preferences;
-      preferences = syncPreferences({...preferences, [name]:name === 'minutes' ? Number(value) : checked});
-      store.set(preferencesKey, preferences);
-      configureSchedule();
-      if (preferences.onChange && (!previous.onChange || engine?.hasLocalChanges())) schedule.changed();
-      controls();
+      if (name === 'minutes') {
+        feedback.textContent = '';
+        if (value === 'custom') {
+          const total = preferences.customMinutes ?? preferences.minutes;
+          intervalDraft = {hours:String(Math.floor(total / 60)), minutes:String(total % 60)};
+          controls();
+        } else {
+          intervalDraft = null;
+          savePreferences({minutes:Number(value)});
+        }
+      } else if (name === 'timer' || name === 'onChange') savePreferences({[name]:checked});
     };
     controls();
   }

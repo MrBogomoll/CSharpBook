@@ -141,8 +141,22 @@ function mountConsolePage(container, {
   fullscreenButton.addEventListener('pointerdown',event => {
     if (host.contains(document.activeElement) || document.activeElement === lineInput) event.preventDefault();
   },{signal});
+  // Both panes share the outer keyboard, even when only the iframe changes focus.
+  const keyboardWindow = window.frameElement?.id === 'book-secondary-frame' ? window.parent : window;
+  const viewport = keyboardWindow.visualViewport;
+  const visibleHeight = () => viewport ? viewport.height * viewport.scale : keyboardWindow.innerHeight;
+  let heightBeforeEditing = 0, widthBeforeEditing = 0;
+  host.addEventListener('focusin',() => {
+    heightBeforeEditing = visibleHeight();
+    widthBeforeEditing = keyboardWindow.innerWidth;
+  },{signal});
   $('.cx-output-toggle').addEventListener('pointerdown',event => {
-    if (host.contains(document.activeElement)) event.preventDefault();
+    if (!host.contains(document.activeElement)) return;
+    // Dismissing Android's keyboard leaves the editor focused. Ignore small changes from browser bars.
+    const keyboardVisible = keyboardWindow.navigator.virtualKeyboard?.boundingRect.height > 0 ||
+      (widthBeforeEditing === keyboardWindow.innerWidth && heightBeforeEditing - visibleHeight() > 90);
+    if (event.pointerType === 'mouse' || keyboardVisible) event.preventDefault();
+    else event.currentTarget.focus({preventScroll:true});
   },{signal});
   page.addEventListener('keydown',event => {
     if (event.key === 'Escape' && !event.isComposing && page.classList.contains('is-fullscreen') && $('.cx-completions').hidden) {
