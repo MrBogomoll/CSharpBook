@@ -29,7 +29,7 @@ def stageAssets = tasks.register('stageBookAssets', Sync) {
     }
 }
 
-def previewConfig = file(providers.gradleProperty('previewCloudConfig').getOrElse(sharedCloudConfig))
+def previewConfig = providers.gradleProperty('previewCloudConfig').map { file(it) }.getOrElse(cloudConfig)
 def previewAssets = layout.buildDirectory.dir('generated/previewCloudAssets')
 def stagePreviewConfig = tasks.register('stagePreviewConfig', Sync) {
     into previewAssets
@@ -42,22 +42,19 @@ android {
     compileSdk 36
     buildToolsVersion '36.0.0'
     defaultConfig {
-        applicationId 'ru.csharpbook.reader'
+        // Keep the identity of the published 0.3.5 preview so Android updates it in place.
+        applicationId 'ru.csharpbook.reader.preview'
         minSdk 28
         targetSdk 35
         manifestPlaceholders = [bookLabel: 'Sharpwise']
-        buildConfigField 'boolean', 'PRODUCTION_UPDATES', 'true'
         buildConfigField 'String', 'STABLE_CERT_SHA256', '"' + file('stable-cert.sha256').text.trim() + '"'
     }
     buildFeatures { buildConfig = true }
     buildTypes {
         preview {
             initWith release
-            applicationIdSuffix '.preview'
-            signingConfig signingConfigs.debug
             matchingFallbacks = ['release']
-            manifestPlaceholders = [bookLabel: 'Sharpwise · Тест']
-            buildConfigField 'boolean', 'PRODUCTION_UPDATES', 'false'
+            manifestPlaceholders = [bookLabel: 'Sharpwise · Бета']
         }
     }
     sourceSets.main {
@@ -70,18 +67,23 @@ android {
     // BookServer serves byte ranges through AssetManager.openFd.
     androidResources.noCompress.add('')
 }
-def betaNumber = providers.gradleProperty('officialBetaNumber').orNull
-def betaCode = providers.gradleProperty('officialBetaCode').orNull
-if (betaNumber != null || betaCode != null) {
-    def planned = new groovy.xml.XmlSlurper(false, false).parse(file('AndroidManifest.xml'))
-    if (!(betaNumber ==~ /[1-9][0-9]{0,8}/) || !(betaCode ==~ /[1-9][0-9]{0,9}/) ||
-            betaCode.toLong() >= planned.'@android:versionCode'.text().toLong()) {
-        throw new GradleException('Set officialBetaNumber and a positive officialBetaCode below the planned stable versionCode.')
-    }
-    androidComponents.onVariants(androidComponents.selector().withBuildType('release')) { variant ->
+def planned = new groovy.xml.XmlSlurper(false, false).parse(file('AndroidManifest.xml'))
+def stableCode = planned.'@android:versionCode'.text().toInteger()
+def betaNumber = providers.gradleProperty('officialBetaNumber')
+def betaCode = providers.gradleProperty('officialBetaCode')
+if (betaNumber.present != betaCode.present) {
+    throw new GradleException('Set officialBetaNumber and officialBetaCode together.')
+}
+def number = betaNumber.getOrElse('1')
+def code = betaCode.getOrElse((stableCode - 1).toString())
+if (!(number ==~ /[1-9][0-9]{0,8}/) || !(code ==~ /[1-9][0-9]{0,9}/) || code.toLong() >= stableCode) {
+    throw new GradleException('Use a positive beta versionCode below the planned stable versionCode.')
+}
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+    if (variant.buildType == 'preview' || (variant.buildType == 'release' && betaNumber.present)) {
         variant.outputs.each { output ->
-            output.versionName.set(planned.'@android:versionName'.text() + '_b.' + betaNumber)
-            output.versionCode.set(betaCode.toInteger())
+            output.versionName.set(planned.'@android:versionName'.text() + '_b.' + number)
+            output.versionCode.set(code.toInteger())
         }
     }
 }

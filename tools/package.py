@@ -31,9 +31,9 @@ shutil.copytree(root/'host/licenses',desktop/'licenses',dirs_exist_ok=True)
 def pack_folder(zip_,folder,prefix=''):
     for f in sorted(folder.rglob('*')):
         if f.is_file():zip_.write(f,prefix+f.relative_to(folder).as_posix(),compress_type=ZIP_STORED if f.suffix in ['.bin','.zip'] else ZIP_DEFLATED)
-with ZipFile(out/f'CSharpBook-{version}-Windows-x64.zip','w',ZIP_DEFLATED,compresslevel=3) as z:
+with ZipFile(out/f'Sharpwise-{version}-Windows-x64.zip','w',ZIP_DEFLATED,compresslevel=3) as z:
     pack_folder(z,desktop,'CSharpBook/')
-with ZipFile(out/f'CSharpBook-{version}-Web.zip','w',ZIP_DEFLATED,compresslevel=5) as z:
+with ZipFile(out/f'Sharpwise-{version}-Web.zip','w',ZIP_DEFLATED,compresslevel=5) as z:
     pack_folder(z,web,'wwwroot/')
     for f in a.server.glob('CSharpBook.Server.*'):
         if f.suffix=='.dll' or f.name.endswith(('.runtimeconfig.json','.deps.json')):z.write(f,f.name)

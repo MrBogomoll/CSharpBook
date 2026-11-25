@@ -10,8 +10,8 @@ internal sealed record ReleaseAsset(string Version, Uri Url, long Size, string D
 
 internal static class ReleaseUpdate
 {
-    internal const string Repository = "https://github.com/MrBogomoll/CSharpBook";
-    internal const string Endpoint = "https://api.github.com/repos/MrBogomoll/CSharpBook/releases/latest";
+    internal const string Repository = "https://github.com/MrBogomoll/Sharpwise";
+    internal const string Endpoint = "https://api.github.com/repos/MrBogomoll/Sharpwise/releases/latest";
     internal static readonly string DisplayVersion = typeof(ReleaseUpdate).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
     internal static readonly bool IsPreview = typeof(ReleaseUpdate).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
         .Any(attribute => attribute.Key == "SharpwiseChannel" && attribute.Value == "Preview");

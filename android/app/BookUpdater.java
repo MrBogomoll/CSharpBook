@@ -1,7 +1,6 @@
 package ru.csharpbook.reader;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.*;
 import android.content.pm.*;
 import android.net.Uri;
@@ -15,9 +14,8 @@ import java.util.*;
 
 final class BookUpdater {
     static final int PERMISSION = 723, INSTALL = 724;
-    static final String REPO = "https://github.com/MrBogomoll/CSharpBook";
-    private static final String STABLE_PACKAGE = "ru.csharpbook.reader";
-    private static final String LATEST = "https://api.github.com/repos/MrBogomoll/CSharpBook/releases/latest";
+    static final String REPO = "https://github.com/MrBogomoll/Sharpwise";
+    private static final String LATEST = "https://api.github.com/repos/MrBogomoll/Sharpwise/releases/latest";
     private final BookActivity activity;
     private final SharedPreferences prefs;
     private boolean busy;
@@ -27,8 +25,8 @@ final class BookUpdater {
         this.activity = activity;
         prefs = activity.getSharedPreferences("updater", Context.MODE_PRIVATE);
         try {
-            PackageInfo installed = installedStable();
-            if (installed != null && installed.versionName.equals(prefs.getString("version", ""))) {
+            PackageInfo installed = installed();
+            if (installed.versionName.equals(prefs.getString("version", ""))) {
                 String version = installed.versionName;
                 message = "Версия " + version + " установлена.";
                 prefs.edit().clear().apply(); UpdateFile.file(activity).delete();
@@ -130,26 +128,17 @@ final class BookUpdater {
             if (BuildConfig.STABLE_CERT_SHA256.equals(hex(MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())))) return true;
         return false;
     }
-    private PackageInfo installedStable() throws Exception {
-        PackageManager pm = activity.getPackageManager();
-        try {
-            PackageInfo info = pm.getPackageInfo(STABLE_PACKAGE, PackageManager.GET_SIGNING_CERTIFICATES);
-            if (!BuildConfig.PRODUCTION_UPDATES && !officialSigner(info))
-                throw new IOException("Подпись установленной стабильной версии отличается от подписи издателя.");
-            return info;
-        } catch (PackageManager.NameNotFoundException missing) { return null; }
+    private PackageInfo installed() throws PackageManager.NameNotFoundException {
+        return activity.getPackageManager().getPackageInfo(activity.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
     }
     private void validate(File apk, String version) throws Exception {
         PackageManager pm = activity.getPackageManager();
-        PackageInfo installed = installedStable();
+        PackageInfo installed = installed();
         PackageInfo next = pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.GET_SIGNING_CERTIFICATES);
-        if (next == null || !STABLE_PACKAGE.equals(next.packageName) || !version.equals(next.versionName) ||
-            next.getLongVersionCode() < 1 || next.signingInfo == null ||
-            (installed != null && next.getLongVersionCode() <= installed.getLongVersionCode()))
+        if (next == null || !installed.packageName.equals(next.packageName) || !version.equals(next.versionName) ||
+            next.getLongVersionCode() <= installed.getLongVersionCode())
             throw new IOException("Имя приложения, подпись или номер версии APK не совпали с выпуском.");
-        if (!BuildConfig.PRODUCTION_UPDATES) {
-            if (!officialSigner(next)) throw new IOException("У APK другая подпись издателя.");
-        } else if (installed == null || installed.signingInfo == null ||
+        if (!officialSigner(installed) || !officialSigner(next) ||
                 !new HashSet<>(Arrays.asList(installed.signingInfo.getApkContentsSigners())).equals(
                  new HashSet<>(Arrays.asList(next.signingInfo.getApkContentsSigners()))))
             throw new IOException("Подпись APK не совпадает с установленной версией.");
@@ -163,12 +152,11 @@ final class BookUpdater {
                 if (rel.getBoolean("draft") || rel.getBoolean("prerelease")) throw new IOException("GitHub вернул предварительный выпуск.");
                 String tag = rel.getString("tag_name");
                 if (!(REPO + "/releases/tag/" + tag).equals(rel.getString("html_url"))) throw new IOException("Не удалось подтвердить источник выпуска.");
-                PackageInfo installed = installedStable();
+                PackageInfo installed = installed();
                 String version = stableVersion(tag);
-                if (installed != null && newer(tag, installed.versionName) == null) {
-                    if (BuildConfig.PRODUCTION_UPDATES) post(installed.versionName.contains("_b.")
+                if (newer(tag, installed.versionName) == null) {
+                    post(installed.versionName.contains("_b.")
                         ? "Стабильный выпуск для этой беты ещё не опубликован." : "У тебя последняя версия.", false);
-                    else activity.runOnUiThread(() -> { if (alive()) offerStable(installed.versionName, true); });
                     return;
                 }
                 JSONArray assets = rel.getJSONArray("assets");
@@ -190,25 +178,10 @@ final class BookUpdater {
                 download(url, version, size, digest.substring(7));
                 activity.runOnUiThread(() -> {
                     if (!alive()) return;
-                    if (BuildConfig.PRODUCTION_UPDATES) requestInstall(); else offerStable(version, false);
+                    requestInstall();
                 });
             } catch (Exception error) { post("Обновление не завершено. " + reason(error), false); }
         }, "book-update").start();
-    }
-    private void offerStable(String version, boolean installed) {
-        String title = "Стабильная версия " + version;
-        state(title + (installed ? " установлена." : " готова к установке."), true);
-        new AlertDialog.Builder(activity).setTitle(title)
-            .setMessage("На Android стабильная и тестовая версии хранят прогресс отдельно. Ты сможешь вернуться в тестовую сборку со своими закладками и черновиками.")
-            .setPositiveButton(installed ? "Открыть" : "Установить", (dialog, which) -> {
-                if (!installed) { requestInstall(); return; }
-                Intent launch = activity.getPackageManager().getLaunchIntentForPackage(STABLE_PACKAGE);
-                if (launch == null) { state("Не удалось открыть стабильную версию.", false); return; }
-                state(title + " установлена.", false);
-                try { activity.startActivity(launch); } catch (ActivityNotFoundException e) { state("Не удалось открыть стабильную версию.", false); }
-            })
-            .setNegativeButton("Отмена", (dialog, which) -> state("Переход отменён.", false))
-            .setOnCancelListener(dialog -> state("Переход отменён.", false)).show();
     }
     private static String reason(Exception error) {
         if (error instanceof UnknownHostException || error instanceof SocketTimeoutException || error instanceof ConnectException)
@@ -239,7 +212,6 @@ final class BookUpdater {
             state(result == Activity.RESULT_OK ? "Стабильная версия " + version + " установлена." : "Установка отменена или отклонена Android. Можно попробовать ещё раз.", false);
             activity.revokeUriPermission(UpdateFile.URI, Intent.FLAG_GRANT_READ_URI_PERMISSION);
             prefs.edit().clear().apply(); UpdateFile.file(activity).delete();
-            if (!BuildConfig.PRODUCTION_UPDATES && result == Activity.RESULT_OK && alive()) offerStable(version, true);
         } else if (request == PERMISSION) {
             if (!activity.getPackageManager().canRequestPackageInstalls()) { state("Разрешение на установку не получено.", false); return; }
             state("Проверяем APK перед установкой…", true);
