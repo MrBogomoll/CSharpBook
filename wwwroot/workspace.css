@@ -1,7 +1,7 @@
 html {scrollbar-gutter:auto}
 .book-viewport {width:100%;overflow:clip}
 .book-window {width:var(--book-screen,100vw);container:book-window / inline-size}
-#book .cs-product#app {position:relative;width:100vw;height:100dvh;display:flex;flex-direction:column;padding-bottom:0}
+#book .cs-product#app {position:relative;width:100vw;height:var(--book-visible-height,100dvh);min-height:var(--book-visible-height,100dvh);display:flex;flex-direction:column;padding-bottom:0}
 #book-contents {position:absolute;z-index:12;box-sizing:border-box;width:min(22rem,calc(100% - 16px));overflow:auto;overscroll-behavior:contain;padding:6px;background:var(--cs-surface);border:1px solid var(--cs-line);border-radius:12px;box-shadow:0 8px 28px #20182f38}
 #book-contents[hidden],#book-contents-button[aria-expanded=false] > :nth-child(2),#book-contents-button[aria-expanded=true] > :first-child {display:none}
 #book #book-contents .cs-chapter,#book #book-contents .cs-topic {min-height:44px;line-height:1.4;white-space:normal;text-align:start}
@@ -34,6 +34,9 @@ html {scrollbar-gutter:auto}
 #book-console {display:flex;flex-direction:column;background:var(--cs-surface)}
 #editor-host {min-width:0;flex:1;overflow:auto}
 #editor-host>.cs-console-page {width:100%;min-width:0}
+#app:not(.has-dock):has(.cx-console.is-fullscreen) > :is(#book-header,#book-bottom),
+#book-console:has(.cx-console.is-fullscreen) > .dock-toolbar {display:none}
+#editor-host > .cs-console-page:has(> .cx-console.is-fullscreen) {height:100%;max-width:none}
 .dock-toolbar,#dock-tabs,.dock-tab {display:flex;align-items:center;min-width:0}
 .dock-toolbar {flex-shrink:0;gap:4px;border-bottom:1px solid var(--cs-line);background:var(--cs-nav);padding:4px 10px}
 #dock-tabs {flex:1;overflow-x:auto;overflow-y:hidden;gap:5px;overscroll-behavior-x:contain}
@@ -70,12 +73,10 @@ html {scrollbar-gutter:auto}
 #book .note-edit {padding:12px}
 #book .notes-list q {color:var(--cs-weak);max-height:5em;overflow:hidden}
 .note-flash {outline:2px solid var(--cs-violet);outline-offset:3px}
-@media(max-width:680px) and (orientation:portrait) {
-  #book-workspace.is-split {grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,var(--reader-size,50%)) 12px minmax(0,1fr)}
-  #book-divider {cursor:row-resize}
-  #book-divider::before {width:auto;height:3px}
-  #book-divider::after {width:64px;height:6px}
-}
+#book-workspace.is-split.is-stacked {grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,var(--reader-size,50%)) 12px minmax(0,1fr)}
+#book-workspace.is-stacked #book-divider {cursor:row-resize}
+#book-workspace.is-stacked #book-divider::before {width:auto;height:3px}
+#book-workspace.is-stacked #book-divider::after {width:64px;height:6px}
 @media(pointer:coarse) {
   #book .cs-content button.passage-more {opacity:1;min-width:32px;min-height:32px}
   #book .dock-toolbar button {min-height:36px}
