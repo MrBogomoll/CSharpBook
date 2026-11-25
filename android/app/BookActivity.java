@@ -11,11 +11,15 @@ import java.io.*;
 
 public final class BookActivity extends Activity {
     private static final int SAVE_PROJECT = 45;
+    private static final long DOUBLE_BACK_MS = 500;
     private WebView web;
     private BookServer server;
     private BookUpdater updater;
     private CloudBridge cloud;
     private String pending, origin;
+    private long firstBackAt = -1;
+    private AlertDialog exitDialog;
+    private Runnable unregisterBack;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -42,6 +46,7 @@ public final class BookActivity extends Activity {
             });
         }
         setContentView(frame);
+        if (Build.VERSION.SDK_INT >= 33) registerSystemBack();
         systemBars();
         WebSettings settings = web.getSettings();
         updater = new BookUpdater(this);
@@ -173,18 +178,60 @@ public final class BookActivity extends Activity {
         web.evaluateJavascript("window.dispatchEvent(new CustomEvent('book-native-update',{detail:{busy:" + busy +
             ",message:" + org.json.JSONObject.quote(message) + "}}))", null);
     }
-    @Override public void onBackPressed() {
-        if (web!=null && web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+    @android.annotation.TargetApi(33)
+    private void registerSystemBack() {
+        android.window.OnBackInvokedDispatcher dispatcher = getOnBackInvokedDispatcher();
+        android.window.OnBackInvokedCallback callback = this::handleSystemBack;
+        // The keyboard must get the system gesture before the activity.
+        dispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback);
+        unregisterBack = () -> dispatcher.unregisterOnBackInvokedCallback(callback);
+    }
+    @Override public void onBackPressed() { handleSystemBack(); }
+    private void handleSystemBack() {
+        if (isFinishing() || isDestroyed() || exitDialog != null) return;
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsets insets = getWindow().getDecorView().getRootWindowInsets();
+            WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null && insets != null && insets.isVisible(WindowInsets.Type.ime())) {
+                firstBackAt = -1;
+                controller.hide(WindowInsets.Type.ime());
+                return;
+            }
+        }
+        long now = SystemClock.uptimeMillis();
+        if (firstBackAt >= 0 && now - firstBackAt <= DOUBLE_BACK_MS) {
+            firstBackAt = -1;
+            exitDialog = new AlertDialog.Builder(this).setMessage("Выйти из приложения?")
+                .setNegativeButton("Остаться",null)
+                .setPositiveButton("Выйти",(dialog,which) -> requestBookExit()).create();
+            exitDialog.setOnDismissListener(dialog -> exitDialog = null);
+            exitDialog.show();
+            return;
+        }
+        firstBackAt = now;
+        if (web != null && web.canGoBack()) web.goBack();
+    }
+    private void requestBookExit() {
+        if (web == null || web.getUrl() == null || !local(Uri.parse(web.getUrl()))) { finish(); return; }
+        web.evaluateJavascript("typeof exitBook === 'function' && !!document.getElementById('book-workspace') && (exitBook(), true)",handled -> {
+            // A failed or still-loading reader has no editable progress to flush.
+            if (!"true".equals(handled) && !isDestroyed()) finish();
+        });
+    }
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus) firstBackAt = -1;
     }
     @Override protected void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
         state.putString("project",pending);
         if (web!=null) web.saveState(state);
     }
-    @Override protected void onPause() { if (cloud!=null) cloud.pause(); if (web!=null) web.onPause(); super.onPause(); }
+    @Override protected void onPause() { firstBackAt = -1; if (cloud!=null) cloud.pause(); if (web!=null) web.onPause(); super.onPause(); }
     @Override protected void onResume() { super.onResume(); if (web!=null) web.onResume(); if (cloud!=null) cloud.resume(); }
     @Override protected void onDestroy() {
+        if (unregisterBack != null) unregisterBack.run();
+        if (exitDialog != null) exitDialog.dismiss();
         if (cloud != null) cloud.close();
         if (web!=null) {
             if (web.getParent() instanceof ViewGroup) ((ViewGroup)web.getParent()).removeView(web);

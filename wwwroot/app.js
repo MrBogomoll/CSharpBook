@@ -16,6 +16,24 @@ function keepReadingPosition() {
 }
 function positionKey(){return readerKey.startsWith('lesson/')?readerKey.slice(7):readerKey;}
 window.addEventListener('pagehide',keepReadingPosition);
+let exitingBook=false;
+function savePaneBeforeExit() {
+  keepReadingPosition();
+  return store.flush();
+}
+async function exitBook() {
+  if(exitingBook)return;
+  exitingBook=true;
+  try {
+    await Promise.all([savePaneBeforeExit(),readyFrame?.savePaneBeforeExit()]);
+    history.replaceState(null,'','#exit');route();
+    window.chrome?.webview?.postMessage('close');
+  } catch(error) {
+    window.alert(error?.message||'Не удалось сохранить прогресс. Попробуй выйти ещё раз.');
+  } finally {
+    exitingBook=false;
+  }
+}
 const findLesson = id => lessons.find(lesson=>lesson.id===id);
 const chapterIndex = id => chapters.findIndex(chapter=>chapter.topics.some(topic=>topic.id===id));
 const esc = value => String(value??'').replace(/[&<>"']/g, char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -52,7 +70,7 @@ function settingsView() {
   let channel='';
   if (betaVersion) channel='<p>Официальная бета. Следующая стабильная версия установится поверх неё и сохранит твой прогресс.</p>';
   else if (preview) channel='<p>Тестовая сборка. Перед обновлением ты увидишь номер стабильного выпуска.</p>';
-  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.4.10')+'</p><fieldset><legend>Оформление учебника</legend>'+
+  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.5.0')+'</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
     '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
     solvedList('course')+'<section id="book-cloud-sync" hidden></section>'+
@@ -262,12 +280,7 @@ root.addEventListener('click',e=>{
   if(action==='copy-command'||action==='copy-sample')return copyText(trigger.dataset.source??trigger.querySelector('code').textContent,trigger);
   if(action==='copy') return copyText(selectedFile==='Program.cs'?example.code:example.files[selectedFile],trigger);
   if(action==='copy-block') return copyText(trigger.closest('.copyable').querySelector('pre').textContent,trigger);
-  if(action==='exit') {
-    keepReadingPosition();
-    history.replaceState(null,'','#exit');route();
-    window.chrome?.webview?.postMessage('close');
-    return;
-  }
+  if(action==='exit')return exitBook();
   if(action==='menu')return toggleContents(e.detail===0);
   if(!['expand','example','file','toggle-output','answer','save','read','unsave'].includes(action))return;
   if(action==='expand'){
