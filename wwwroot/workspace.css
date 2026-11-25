@@ -1,7 +1,13 @@
 html {scrollbar-gutter:auto}
 .book-viewport {width:100%;overflow:clip}
 .book-window {width:var(--book-screen,100vw);container:book-window / inline-size}
-#book .cs-product#app {width:100vw;height:100dvh;display:flex;flex-direction:column;padding-bottom:0}
+#book .cs-product#app {position:relative;width:100vw;height:100dvh;display:flex;flex-direction:column;padding-bottom:0}
+#book-contents {position:absolute;z-index:12;box-sizing:border-box;width:min(22rem,calc(100% - 16px));overflow:auto;overscroll-behavior:contain;padding:6px;background:var(--cs-surface);border:1px solid var(--cs-line);border-radius:12px;box-shadow:0 8px 28px #20182f38}
+#book-contents[hidden],#book-contents-button[aria-expanded=false] > :nth-child(2),#book-contents-button[aria-expanded=true] > :first-child {display:none}
+#book #book-contents .cs-chapter,#book #book-contents .cs-topic {min-height:44px;line-height:1.4;white-space:normal;text-align:start}
+#book #book-contents .cs-chapter {padding-inline:10px}
+#book #book-contents .cs-topic {padding-inline:22px 10px;font-size:13px}
+#book-contents > div + div {border-top:1px solid var(--cs-line)}
 #book-workspace {flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
 #book-left {display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);min-height:0;min-width:0;overflow:hidden}
 #book-primary,#book-console {min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain}

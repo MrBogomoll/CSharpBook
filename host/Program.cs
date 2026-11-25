@@ -88,6 +88,7 @@ internal static class Program
                     var env=await CoreWebView2Environment.CreateAsync(null,profile);
                     await view.EnsureCoreWebView2Async(env);
                     var core=view.CoreWebView2;
+                    if (ReleaseUpdate.IsPreview) core.Settings.UserAgent += " SharpwisePreview/1";
                     core.Settings.AreDefaultContextMenusEnabled=true;
                     core.NavigationStarting+=(_,e)=>{if(!Local(e.Uri) && e.Uri!="about:blank"){e.Cancel=true; OpenExternal(e.Uri);}};
                     core.NewWindowRequested+=(_,e)=>{e.Handled=true; OpenExternal(e.Uri);};
@@ -144,6 +145,14 @@ internal static class Program
                 timeout.CancelAfter(TimeSpan.FromMinutes(10));
                 var release = await ReleaseUpdate.Latest(timeout.Token);
                 if (release == null) { Status("У тебя последняя версия.", false); return; }
+                if (ReleaseUpdate.IsPreview && MessageBox.Show(this,
+                    $"Тестовая сборка {ReleaseUpdate.DisplayVersion} будет заменена стабильной версией {release.Version}. " +
+                    "У более раннего выпуска может быть меньше функций. Перейти на стабильную версию?",
+                    "Переход на стабильную версию", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+                {
+                    Status("Переход отменён.", false); return;
+                }
                 stage = ReleaseUpdate.CreateStage(AppContext.BaseDirectory);
                 string zip = Path.Combine(stage, "release.zip");
                 Status($"Скачиваем версию {release.Version}…");

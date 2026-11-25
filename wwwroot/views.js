@@ -65,7 +65,22 @@ function summaryOf(topic) {
   return lead.length>120?lead.slice(0,118).replace(/\s+\S*$/u,'')+'…':lead;
 }
 const words = (count,one,few,many) => count%10===1 && count%100!==11 ? one : count%10>=2 && count%10<=4 && !(count%100>=12 && count%100<=14) ? few : many;
-const formatText = s => esc(s).replace(/\x60([^\x60]+)\x60/g,'<code>$1</code>');
+function inlineCode(value,ownLine=false) {
+  if(!/^(?:dotnet|cd)\s+\S/.test(value))return '<code>'+esc(value)+'</code>';
+  return button('copy-command','<code>'+esc(value)+'</code>'+icon('copy'),
+    'lesson-command'+(ownLine?' command-line':''),'data-label="Копировать" aria-label="Скопировать команду '+esc(value)+'"');
+}
+function formatText(value) {
+  const source=String(value??'');
+  let result='',start=0;
+  for(const match of source.matchAll(/\x60([^\x60\n]+)\x60/g)){
+    const at=match.index,end=at+match[0].length;
+    const ownLine=(at===0||source[at-1]==='\n')&&(end===source.length||source[end]==='\n');
+    result+=esc(source.slice(start,at))+inlineCode(match[1],ownLine);
+    start=end;
+  }
+  return result+esc(source.slice(start));
+}
 function homeView(lesson){
   const intro=readingChapter();
   const resumeTask=lesson.exercises.find(t=>t.id===lastReading.split('/')[2]);
@@ -87,17 +102,19 @@ function syntaxGuide(lesson, recap = false) {
   if (!lesson.syntaxGuide) return '';
   const { sample, parts, try: experiment } = lesson.syntaxGuide;
   const entries = parts.map(([piece, meaning]) =>
-    '<div><dt><code>' + esc(piece) + '</code></dt><dd>' + formatText(meaning) + '</dd></div>'
+    '<div><dt>' + inlineCode(piece,true) + '</dt><dd>' + formatText(meaning) + '</dd></div>'
   ).join('');
   const open = typeof lesson.syntaxGuide.output === 'string'
     ? button('open-syntax', icon('square-terminal') + 'Открыть в консоли', 'cs-tool')
     : '';
+  const sampleBlock = source => '<div class="copyable"><div class="copy-line">'+button('copy-block',icon('copy')+'Копировать','copy-small')+
+    '</div><pre class="guide-sample"><code>'+syntax(source)+'</code></pre></div>';
   const companions = Object.entries(lesson.syntaxGuide.files || {}).map(([name, code]) =>
-    '<details class="guide-file"><summary>' + esc(name) + '</summary><pre class="guide-sample"><code>' + syntax(code) + '</code></pre></details>'
+    '<details class="guide-file"><summary>' + esc(name) + '</summary>'+sampleBlock(code)+'</details>'
   ).join('');
   const result = open ? '<details><summary>Что выведет этот код</summary>' +
     '<pre class="guide-output">' + esc(lesson.syntaxGuide.output || '(пустой вывод)') + '</pre></details>' : '';
-  const body = '<pre class="guide-sample"><code>' + syntax(sample) + '</code></pre>' +
+  const body = sampleBlock(sample) +
     companions + exampleInput(lesson.syntaxGuide) + result +
     '<dl class="guide-parts">' + entries + '</dl>' +
     '<p class="guide-try" data-note-anchor="syntax-experiment"><strong>Попробуй изменить код.</strong> ' + formatText(experiment) + '</p>' + open;
@@ -110,10 +127,10 @@ function teach(lesson) {
   const answered=Number.isInteger(a);
   const feedback=answered?(a===q.correct?'Верно. '+q.explanation:'Попробуй ещё раз. '+q.hint):'';
   const snippet=copyable;
-  const runHelp=lesson.id==='first-program'?'<details><summary class="cursor-interaction">Как запустить свой код на ПК</summary><p>Установи .NET SDK 10 или 11. Создай пустую папку и открой в ней терминал — окно для ввода команд. Введи <code>dotnet new console</code>. В папке появится файл <code>Program.cs</code>.</p><p>Открой его в текстовом редакторе, замени содержимое своим кодом и сохрани. Вернись в терминал и введи <code>dotnet run</code>. В этом же окне появится результат.</p><a class="cs-source" href="https://learn.microsoft.com/ru-ru/dotnet/core/tools/" target="_blank" rel="noopener noreferrer">Команды .NET в Microsoft Learn</a></details>':'';
+  const runHelp=lesson.id==='first-program'?'<details><summary class="cursor-interaction">Как запустить свой код на ПК</summary><p>Установи .NET SDK 10 или 11. Создай пустую папку и открой в ней терминал — окно для ввода команд. Введи '+inlineCode('dotnet new console')+'. В папке появится файл <code>Program.cs</code>.</p><p>Открой его в текстовом редакторе, замени содержимое своим кодом и сохрани. Вернись в терминал и введи '+inlineCode('dotnet run')+'. В этом же окне появится результат.</p><a class="cs-source" href="https://learn.microsoft.com/ru-ru/dotnet/core/tools/" target="_blank" rel="noopener noreferrer">Команды .NET в Microsoft Learn</a></details>':'';
   return '<section class="cs-reading"><h3>Разбор по строкам</h3><ol class="cs-walk">'+steps.map(step=>'<li>'+formatText(step)+'</li>').join('')+'</ol>'+
-    lesson.learn.map(block=>'<h3>'+esc(block.title)+'</h3><p>'+formatText(block.text)+'</p>').join('')+runHelp+
-    '<details><summary class="cursor-interaction">Частая ошибка</summary><p>Запись с ошибкой</p>'+snippet(lesson.mistake.wrong)+'<p>'+formatText(lesson.mistake.why)+'</p><p>Исправление</p>'+snippet(lesson.mistake.fix)+'</details>'+
+    lesson.learn.map(block=>'<h3>'+esc(block.title)+'</h3><p'+(block.anchor?' data-note-anchor="'+esc(block.anchor)+'"':'')+'>'+formatText(block.text)+'</p>').join('')+runHelp+
+    '<details><summary class="cursor-interaction">Частая ошибка</summary><p>Запись с ошибкой</p>'+snippet(lesson.mistake.wrong)+'<p>'+formatText(lesson.mistake.why)+'</p><p>Исправление</p>'+(lesson.id==='project-layout'?'<p>'+formatText(lesson.mistake.fix)+'</p>':snippet(lesson.mistake.fix))+'</details>'+
     '<h3>Проверь себя</h3><p>'+formatText(q.question)+'</p><div class="cs-answers" role="group" aria-label="Варианты ответа">'+q.choices.map((choice,i)=>button('answer:'+i,esc(choice),'cs-tool'+(i===a?' on':''),'aria-pressed="'+(i===a)+'"')).join('')+'</div><p class="cs-feedback" aria-live="polite">'+formatText(feedback)+'</p>'+
     '<details><summary class="cursor-interaction">Подсказка</summary><p>'+formatText(q.hint)+'</p></details>'+
     '<a class="cs-source" href="'+esc(lesson.source.url)+'" target="_blank" rel="noopener noreferrer">'+(lesson.source.url.includes('learn.microsoft.com')?'Microsoft Learn':'Visual Studio Code')+' · '+esc(lesson.source.label.replace(/^Microsoft Learn · /,''))+'</a></section>';
@@ -125,6 +142,7 @@ function lessonView(lesson) {
   const readButton=button('read',icon(read?'circle-check':'circle')+(read?'Прочитано':'Отметить прочитанным'),'cs-tool'+(read?' on':''),'aria-pressed="'+read+'"');
   const links='<div class="bm-links"><span role="status" aria-live="polite">'+esc(feedback)+'</span>'+button('go:saved','Открыть закладки'+icon('arrow-right'),'cs-flat cs-next')+button('go:home','К оглавлению'+icon('chevron-right'),'cs-flat')+'</div>';
   return banner('Тема '+(i+1)+' · '+chapters[i].title+' · Глава '+(chapters[i].topics.indexOf(lesson)+1),lesson.title,lesson.intro,lesson.id==='variables')+controls+links+
+    (lesson.id==='types'?typeGuide():'')+
     '<div class="cs-body">'+syntaxGuide(lesson)+theoryView(lesson.theory)+'<h2>'+esc(lesson.section)+'</h2><p class="cs-description">'+formatText(lesson.description)+'</p>'+
     tabs(lesson)+exampleInput(lesson.examples[state.example])+editor(lesson)+(lesson.note?'<p class="lesson-note">'+formatText(lesson.note)+'</p>':'')+teach(lesson)+projectLink(lesson)+
     '<div class="cs-actions">'+button('go:home',icon('book-open')+'К оглавлению','cs-tool')+readButton+button('step:'+lesson.exercises[0].id,'К упражнениям'+icon('arrow-right'),'cs-flat cs-next')+'</div></div>';
@@ -170,7 +188,9 @@ function bookmarkedPage(lesson) {
 
 
 function chapterIntroLink(index,large) {
-  return button('chapter:'+index,icon('book-open')+'Введение в тему',large?'chapter-intro-link':'cs-topic');
+  const current=lastReading==='chapter/'+index;
+  return button('chapter:'+index,icon('book-open')+'Введение в тему',
+    large?'chapter-intro-link':'cs-topic'+(current?' selected':''),current?'aria-current="page"':'');
 }
 function theoryView(blocks) {
   return '<section class="chapter-theory">'+(blocks||[]).map((block,i)=>

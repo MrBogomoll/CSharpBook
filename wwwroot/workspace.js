@@ -10,6 +10,7 @@ class PaneStore extends BookStore {
   set(key,value){super.set(this.scoped(key),value);}
 }
 let primary, reader, auxiliary, workspace, dock, divider, dockTabs, consolePages, consolePanel;
+let contentsPanel;
 let secondaryFrame, readyFrame, pendingExample, storedPrograms;
 let split=false, activeConsole='', lastReading='', readerKey='';
 const consoleTabs=new Map();
@@ -32,14 +33,24 @@ function createWorkspace() {
     syncWidth();parent.addEventListener('resize',syncWidth);
     window.addEventListener('pagehide',()=>parent.removeEventListener('resize',syncWidth),{once:true});
   }
-  root.innerHTML='<div id="book-header"></div><div id="book-workspace"><div id="book-left"><div id="book-primary"><div id="reader-view" hidden></div><div id="aux-view"></div></div>'+
+  root.innerHTML='<div id="book-header"></div><nav id="book-contents" aria-label="Содержание" hidden></nav><div id="book-workspace"><div id="book-left"><div id="book-primary"><div id="reader-view" hidden></div><div id="aux-view"></div></div>'+
     '<section id="book-console" aria-label="Консоль" hidden><div class="dock-toolbar"><div id="dock-tabs" aria-label="Открытые программы"></div>'+
     '<select id="stored-programs" aria-label="Открыть сохранённую программу" hidden></select>'+
     button('new-console',icon('plus'),'dock-icon','aria-label="Новая консоль" title="Новая консоль"')+'</div><div id="editor-host"></div></section></div>'+
     '<div id="book-divider" role="separator" tabindex="0" aria-label="Размер панелей" aria-controls="book-left book-dock" aria-valuemin="25" aria-valuemax="75" hidden></div>'+
-    '<section id="book-dock" aria-label="Вторая панель" hidden></section></div><div id="book-bottom"></div>';
+    '<section id="book-dock" aria-label="Вторая панель" hidden></section></div><div id="book-bottom"></div><span id="book-copy-status" role="status" aria-live="polite"></span>';
   workspace=root.querySelector('#book-workspace');primary=root.querySelector('#book-primary');
   reader=root.querySelector('#reader-view');auxiliary=root.querySelector('#aux-view');
+  contentsPanel=root.querySelector('#book-contents');
+  const contentsResize=new ResizeObserver(positionContents);
+  for(const element of [root,root.querySelector('#book-header'),primary])contentsResize.observe(element);
+  document.addEventListener('pointerdown',dismissContentsOutside);
+  document.addEventListener('focusin',dismissContentsOutside);
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&!contentsPanel.hidden){
+      event.preventDefault();closeContents(true);
+    }
+  });
   dock=root.querySelector('#book-dock');divider=root.querySelector('#book-divider');
   consolePanel=root.querySelector('#book-console');
   dockTabs=root.querySelector('#dock-tabs');consolePages=root.querySelector('#editor-host');
@@ -191,11 +202,58 @@ function newConsole() {
   const identity=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint32Array(4)),n=>n.toString(16)).join('-');
   addConsole({key:'scratch/'+number+'/'+identity,source:'',files:{},version:10,topicId:state.lesson,topicTitle:'',exampleTitle:'Программа '+number});
 }
+function contentsButton(css) {
+  return button('menu',icon('menu')+icon('x')+'Содержание',css,
+    'id="book-contents-button" aria-controls="book-contents" aria-expanded="'+!contentsPanel.hidden+'"');
+}
+function dismissContentsOutside(event) {
+  if(!contentsPanel.hidden&&!event.target.closest('#book-contents,#book-contents-button'))closeContents();
+}
+function closeContents(restoreFocus=false) {
+  if(!contentsPanel||contentsPanel.hidden)return;
+  contentsPanel.hidden=true;
+  const toggle=document.getElementById('book-contents-button');
+  toggle?.setAttribute('aria-expanded','false');
+  if(restoreFocus)toggle?.focus({preventScroll:true});
+}
+function positionContents() {
+  if(contentsPanel.hidden)return;
+  const toggle=document.getElementById('book-contents-button');
+  if(!toggle?.getClientRects().length){closeContents();return;}
+  const frame=root.getBoundingClientRect(), anchor=toggle.getBoundingClientRect();
+  const bottomBar=root.querySelector('#book-bottom');
+  const bottom=bottomBar.offsetHeight?bottomBar.getBoundingClientRect().top:frame.bottom;
+  const left=Math.max(8,Math.min(anchor.right-frame.left-contentsPanel.offsetWidth,frame.width-contentsPanel.offsetWidth-8));
+  contentsPanel.style.left=left+'px';
+  contentsPanel.style.top=(anchor.bottom-frame.top+4)+'px';
+  contentsPanel.style.maxHeight=Math.max(0,bottom-anchor.bottom-12)+'px';
+}
+function refreshContentsPanel() {
+  if(contentsPanel.hidden)return;
+  const focused=contentsPanel.contains(document.activeElement)?document.activeElement.dataset.action:null;
+  const scroll=contentsPanel.scrollTop;
+  contentsPanel.innerHTML=contents();
+  contentsPanel.scrollTop=scroll;
+  if(focused)contentsPanel.querySelector('[data-action="'+CSS.escape(focused)+'"]')?.focus({preventScroll:true});
+}
+function toggleContents(keyboard) {
+  if(!contentsPanel.hidden){closeContents();return;}
+  contentsPanel.hidden=false;
+  document.getElementById('book-contents-button').setAttribute('aria-expanded','true');
+  refreshContentsPanel();glyphs();positionContents();
+  const selected=contentsPanel.querySelector('[aria-current="page"]')||contentsPanel.querySelector('button');
+  contentsPanel.scrollTop=0;
+  if(selected){
+    const offset=selected.getBoundingClientRect().top-contentsPanel.getBoundingClientRect().top;
+    contentsPanel.scrollTop=Math.max(0,offset-contentsPanel.clientHeight/3);
+    if(keyboard)selected.focus({preventScroll:true});
+  }
+}
 function secondaryHeader(reading) {
   const current=reading?'reader':state.page;
   const options=paneSections.map(([key,title])=>'<option value="'+key+'"'+(key===current?' selected':'')+'>'+title+'</option>').join('');
   return '<header class="pane-header"><select id="pane-section-select" aria-label="Раздел второй панели">'+options+'</select>'+
-    (reading?button('menu',icon('list')+'Содержание','pane-chapters','aria-expanded="'+menuOpen+'"'):'')+'</header>';
+    (reading?contentsButton('pane-chapters'):'')+'</header>';
 }
 function choosePaneView() {
   return '<main class="pane-choice"><h2>Открыть во второй панели</h2>'+paneSections.map(([key,title,glyph])=>

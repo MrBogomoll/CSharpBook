@@ -100,6 +100,8 @@ try
         });
     }
     Assert(ReleaseUpdate.Select(Metadata("0.1.0"), ReleaseUpdate.DisplayVersion) == null, "Stable base never downgrades beta");
+    Assert(ReleaseUpdate.Select(Metadata("0.1.0"), "0.3.5", true)?.Version == "0.1.0", "Explicit preview switch can install an older stable release");
+    Assert(ReleaseUpdate.Select(Metadata("0.1.0"), "0.1.0", true)?.Version == "0.1.0", "A stable release can replace a preview of the same version");
     var asset = ReleaseUpdate.Select(Metadata("0.1.1"), ReleaseUpdate.DisplayVersion)!;
     string stage = ReleaseUpdate.CreateStage(install);
     string archivePath = Path.Combine(stage, "received.zip");

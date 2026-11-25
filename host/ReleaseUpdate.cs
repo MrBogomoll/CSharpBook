@@ -13,10 +13,12 @@ internal static class ReleaseUpdate
     internal const string Repository = "https://github.com/MrBogomoll/CSharpBook";
     internal const string Endpoint = "https://api.github.com/repos/MrBogomoll/CSharpBook/releases/latest";
     internal static readonly string DisplayVersion = typeof(ReleaseUpdate).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
+    internal static readonly bool IsPreview = typeof(ReleaseUpdate).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+        .Any(attribute => attribute.Key == "SharpwiseChannel" && attribute.Value == "Preview");
     private const long MaxBytes = 512L * 1024 * 1024;
     private static readonly HttpClient Client = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromMinutes(10) };
 
-    internal static ReleaseAsset? Select(JsonElement release, string current)
+    internal static ReleaseAsset? Select(JsonElement release, string current, bool switchToStable = false)
     {
         if (release.GetProperty("draft").GetBoolean() || release.GetProperty("prerelease").GetBoolean())
             throw new InvalidDataException("GitHub вернул предварительный выпуск.");
@@ -26,10 +28,15 @@ internal static class ReleaseUpdate
         string version = tag.TrimStart('v');
         if (release.GetProperty("html_url").GetString() != $"{Repository}/releases/tag/{tag}")
             throw new InvalidDataException("Не удалось подтвердить источник выпуска.");
-        if (Version.Parse(version) <= Version.Parse(current.Split('_')[0])) return null;
+        if (!switchToStable && Version.Parse(version) <= Version.Parse(current.Split('_')[0])) return null;
 
-        string name = $"CSharpBook-{version}-Windows-x64.zip";
-        var asset = release.GetProperty("assets").EnumerateArray().Single(a => a.GetProperty("name").GetString() == name);
+        var assets = release.GetProperty("assets").EnumerateArray().Where(a => {
+            string? file = a.GetProperty("name").GetString();
+            return file == $"Sharpwise-{version}-Windows-x64.zip" || file == $"CSharpBook-{version}-Windows-x64.zip";
+        }).ToArray();
+        if (assets.Length != 1) throw new InvalidDataException("В выпуске нет однозначного архива для Windows x64.");
+        var asset = assets[0];
+        string name = asset.GetProperty("name").GetString()!;
         var expectedUrl = $"{Repository}/releases/download/{tag}/{name}";
         long size = asset.GetProperty("size").GetInt64();
         string digest = asset.GetProperty("digest").GetString() ?? "";
@@ -52,7 +59,7 @@ internal static class ReleaseUpdate
         response.EnsureSuccessStatusCode();
         await response.Content.LoadIntoBufferAsync(512 * 1024, cancel);
         using var json = JsonDocument.Parse(await response.Content.ReadAsByteArrayAsync(cancel));
-        return Select(json.RootElement, DisplayVersion);
+        return Select(json.RootElement, DisplayVersion, IsPreview);
     }
 
     internal static async Task Download(ReleaseAsset asset, string path, Action<int> progress, CancellationToken cancel)

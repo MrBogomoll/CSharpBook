@@ -63,10 +63,10 @@ function validateProvider(provider) {
 }
 
 export function getStatus() { return request('status'); }
-export function connect(provider, deviceId) {
+export function connect(provider, deviceId, mode='pair') {
   validateProvider(provider);
   if (provider === 'documents' && !uuid.test(deviceId)) throw new Error('Не удалось определить устройство.');
-  return request('connect', provider === 'documents' ? {provider, deviceId} : {provider});
+  return request('connect', provider === 'documents' ? {provider, deviceId, mode} : {provider});
 }
 export function disconnect() { return request('disconnect'); }
 

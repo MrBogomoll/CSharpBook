@@ -84,10 +84,12 @@ final class CloudBridge {
             return JSONObject.NULL;
         }
         if ("status".equals(op)) {
-            Object provider;
-            try { provider = credentials.read().opt("provider"); }
-            catch (Exception e) { provider = null; }
+            JSONObject binding;
+            try { binding = credentials.read(); }
+            catch (Exception e) { binding = new JSONObject(); }
+            Object provider = binding.opt("provider");
             return new JSONObject().put("provider", provider == null ? JSONObject.NULL : provider)
+                .put("awaitingPeer", "documents".equals(provider) && !binding.has("incoming"))
                 .put("configured", new JSONObject().put("google", googleConfigured).put("yandex", yandexConfigured).put("folder", true).put("documents", true));
         }
         String provider = request.getString("provider");

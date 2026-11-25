@@ -14,9 +14,9 @@ pwsh -File ./android/Build-Apk.ps1 -WebRoot ./wwwroot -WorkDir ./build-android
 
 Путь к JDK можно передать через `-JavaHome`, к итоговому APK — через `-OutputApk`. Первая сборка скачивает Gradle 9.1.0 и Android SDK 36. Gradle получает NanoHTTPD, Google Play services Auth и их зависимости из Google Maven и Maven Central. В последующих сборках используются локальные копии. Перед созданием пакета подготовь итоговые `course.json`, `sw.js` и каталоги `runtime` и `projects` в `wwwroot`.
 
-Для сборки с настроенным облаком скопируй `cloud-sync.example.json` в `android/cloud-sync.json` или передай путь параметром `-CloudConfig`. В файл входят флаг настройки Google для текущих имени пакета и сертификата и публичный идентификатор клиента Яндекса. Без регистрации клиентов оба провайдера по умолчанию выключены. Файл с настройками попадает в `assets/cloud-sync.json` в APK.
+Прямой вход в Яндекс Диск включён в обычной и тестовой сборках. Gradle упаковывает `../cloud-sync.defaults.json` в `assets/cloud-sync.json`. Чтобы добавить Google или использовать другой ClientID Яндекса, заполни копию `cloud-sync.example.json` и передай путь через `-CloudConfig`. Обычная сборка также поддерживает локальный файл `android/cloud-sync.json`.
 
-Вызов `./android/Build-Apk.ps1 -Preview` (задача Gradle `assemblePreview`) собирает отдельное приложение «Sharpwise · Тест» (`ru.csharpbook.reader.preview`) с тестовой подписью. У него собственный прогресс и ручное обновление APK. По умолчанию для тестовой сборки используется пустой `cloud-sync.example.json`, в том числе при наличии `android/cloud-sync.json`. Чтобы включить прямой вход, зарегистрируй тестовый пакет и его сертификат в Google и адрес возврата `ru.csharpbook.reader.preview://oauth/yandex` в Яндексе. Передай конфигурацию, подготовленную для этой сборки:
+Вызов `./android/Build-Apk.ps1 -Preview` (задача Gradle `assemblePreview`) собирает отдельное приложение «Sharpwise · Тест» (`ru.csharpbook.reader.preview`) с тестовой подписью. У него собственный прогресс и ручное обновление APK. Для подключения Google зарегистрируй тестовый пакет и сертификат в Google и передай конфигурацию этой сборки.
 
 ```powershell
 ./android/Build-Apk.ps1 -Preview -CloudConfig C:\build\preview\cloud-sync.json
@@ -26,4 +26,4 @@ pwsh -File ./android/Build-Apk.ps1 -WebRoot ./wwwroot -WorkDir ./build-android
 
 [Регистрация приложений Google и Яндекс](../docs/cloud-sync.md)
 
-Версия 0.3.2 использует versionCode 8. В версии 0.3.1 использовался versionCode 7. Версия 0.3.0 использовала versionCode 6. Стабильная версия 0.2.0 использовала versionCode 5. Первый стабильный выпуск 0.1.0 использовал versionCode 2. Для установки обновления поверх прежней версии нужен больший versionCode и тот же ключ подписи. Скрипт сверяет содержимое APK с исходниками и проверяет подпись и выравнивание файла.
+Версия 0.3.5 использует versionCode 11. У версии 0.3.4 был код 10. У версии 0.3.3 был код 9. У версий 0.3.2, 0.3.1 и 0.3.0 были коды 8, 7 и 6 соответственно. Стабильная версия 0.2.0 использовала versionCode 5. Первый стабильный выпуск 0.1.0 использовал versionCode 2. Для установки обновления поверх прежней версии нужен больший versionCode и тот же ключ подписи. Скрипт сверяет содержимое APK с исходниками и проверяет подпись и выравнивание файла.

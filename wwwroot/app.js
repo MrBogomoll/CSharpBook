@@ -3,7 +3,7 @@ const root = document.getElementById('app');
 const store = new PaneStore();
 let chapters = [], lessons = [];
 const state = {page:'home',lesson:'',step:'',taskFile:'Program.cs',example:0,read:[],saved:[],expanded:[0],started:false};
-let feedback='', menuOpen=false, hideExampleOutput=false, selectedFile='Program.cs';
+let feedback='', hideExampleOutput=false, selectedFile='Program.cs';
 let detachHints=null;
 let cloudSync=null;
 let scrollTimer=null;
@@ -45,11 +45,16 @@ function syncMarks() {
 }
 function settingsView() {
   const theme=store.get('theme','auto');
-  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия 0.3.2</p><fieldset><legend>Оформление учебника</legend>'+
+  const preview=navigator.userAgent.includes('SharpwisePreview/');
+  const channel=preview?'<p>'+ (navigator.userAgent.includes('CSharpBookAndroid/')
+    ? 'Тестовая сборка. Стабильное приложение устанавливается рядом и хранит собственный прогресс.'
+    : 'Тестовая сборка. Перед заменой приложения ты увидишь номер последнего стабильного выпуска.')+'</p>':'';
+  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия 0.3.5</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
     '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
     '<section id="book-cloud-sync" hidden></section>'+
-    '<section id="book-updates"><h2>Обновление приложения</h2><button type="button" class="cs-tool" id="book-update-button">Обновить версию</button><p id="book-update-status" role="status" aria-live="polite"></p></section>'+
+    '<section id="book-updates"><h2>Обновление приложения</h2>'+channel+'<button type="button" class="cs-tool" id="book-update-button">'+
+    (preview?'Перейти на стабильную версию':'Обновить версию')+'</button><p id="book-update-status" role="status" aria-live="polite"></p></section>'+
     (store.warning?'<p role="alert">'+esc(store.warning)+'</p>':'')+
     button('exit',icon('log-out')+'Выйти из приложения','cs-tool')+'</main>';
 }
@@ -71,6 +76,7 @@ function go(page,id,step) {
 }
 function route() {
   if(!primary)return;
+  closeContents();
   keepReadingPosition();noteMenu.hidden=true;selectionTool.hidden=true;
   const [page,arg,stepId]=location.hash.slice(1).split('/');
   const destination=page==='lesson'&&findLesson(arg)?'lesson':page==='chapter'&&/^\d+$/.test(arg)&&chapters[Number(arg)]?'chapter':
@@ -83,7 +89,7 @@ function route() {
   if(changed){
     detachHints?.();detachHints=null;
     state.taskFile='Program.cs';
-    state.example=0;selectedFile='Program.cs';hideExampleOutput=false;feedback='';menuOpen=false;
+    state.example=0;selectedFile='Program.cs';hideExampleOutput=false;feedback='';
   }
   if(destination==='lesson'){
     state.lesson=arg;state.step=step?.id||'';store.set('last',arg);
@@ -104,11 +110,12 @@ function route() {
   }else if(!isReading&&destination!=='console'&&destination!==previous)primary.scrollTop=pagePositions.get(destination)||0;
 }
 function sidebar(){
-  return '<aside aria-label="Содержание" class="cs-side'+(menuOpen?' open':'')+'"><div class="cs-side-title">Содержание</div><div class="cs-sections">'+contents()+'</div><div class="cs-progress">Прочитано <strong>'+state.read.length+' из '+lessons.length+' глав</strong><div class="cs-progress-track"><i style="width:'+100*state.read.length/lessons.length+'%"></i></div></div></aside>';
+  return '<aside aria-label="Содержание" class="cs-side"><div class="cs-side-title">Содержание</div><div class="cs-sections">'+contents()+'</div><div class="cs-progress">Прочитано <strong>'+state.read.length+' из '+lessons.length+' глав</strong><div class="cs-progress-track"><i style="width:'+100*state.read.length/lessons.length+'%"></i></div></div></aside>';
 }
 function refreshMarks(updatePage=true) {
   const side=reader.querySelector('.cs-side');
   if(side)side.outerHTML=sidebar();
+  refreshContentsPanel();
   if(readerKey.startsWith('lesson/')){
     const id=readerKey.split('/')[1];
     for(const [action,list,off,on,offIcon,onIcon] of [
@@ -139,7 +146,7 @@ function paintReader() {
   detachHints?.();detachHints=null;
   readerKey=key;
   reader.innerHTML='<div class="cs-grid">'+sidebar()+'<main class="cs-content">'+(key.startsWith('chapter/')?chapterView(Number(key.slice(8))):stepStrip(lesson,state.step)+(task?exerciseView(lesson,task):lessonView(lesson)))+'</main></div>';
-  reader.querySelectorAll('details').forEach((d,i)=>{if(open[i])d.open=true;});
+  reader.querySelectorAll('details').forEach((d,i)=>{if(i<open.length)d.open=open[i];});
   decoratePassages();
   const area=reader.querySelector('.cs-draft');
   if(area)import('./editor/completion.js').then(({attachLessonCompletions})=>{
@@ -154,8 +161,8 @@ function render(forceReader=false) {
   const reading=page==='lesson'||page==='chapter', full=page==='console';
   document.title=({home:'C# с нуля',lesson:lesson.title,chapter:readingChapter()?.title,saved:'Закладки',console:'Консоль',choose:'Вторая панель',settings:'Настройки',exit:'До встречи'})[page]+' · Sharpwise';
   const splitLabel=split?'Скрыть вторую панель':'Разделить экран';
-  root.querySelector('#book-header').innerHTML=secondaryPane?secondaryHeader(reading):'<header class="cs-top">'+button('go:home','<span class="cs-logo" aria-hidden="true">C#</span>Sharpwise','cs-brand','aria-label="На главную"')+nav('cs-global')+
-    '<div class="header-tools">'+(reading?button('menu',icon(menuOpen?'x':'menu')+'Содержание','cs-mobile-menu','aria-expanded="'+menuOpen+'"'):'')+
+  root.querySelector('#book-header').innerHTML=secondaryPane?secondaryHeader(reading):'<header class="cs-top">'+button('go:home','<img class="cs-logo" src="icons/book-192.png" width="32" height="32" alt="">Sharpwise','cs-brand','aria-label="Sharpwise — на главную"')+nav('cs-global')+
+    '<div class="header-tools">'+(reading?contentsButton('cs-mobile-menu'):'')+
     button('dock',icon('columns-2'),'settings-icon'+(split?' on':''),'aria-label="'+splitLabel+'" title="'+splitLabel+'" aria-pressed="'+split+'"')+
     button('go:settings',icon('settings'),'settings-icon'+(page==='settings'?' on':''),'aria-label="Настройки" title="Настройки"')+'</div></header>';
   root.querySelector('#book-bottom').innerHTML=secondaryPane?'':nav('cs-mobile-nav');
@@ -172,15 +179,23 @@ function render(forceReader=false) {
     if(page==='exit')auxiliary.innerHTML='<main class="settings-view"><h1>До встречи!</h1><p>'+esc(store.warning||'Прогресс сохранён. Можно закрыть приложение.')+'</p>'+button('go:home','Вернуться в учебник','cs-tool')+'</main>';
   }
   root.querySelector('#book-header').hidden=page==='exit'||page==='choose';root.querySelector('#book-bottom').hidden=page==='exit'||secondaryPane;
-  paintWorkspace();glyphs();
+  paintWorkspace();glyphs();positionContents();
 }
 async function copyText(text,trigger) {
   let ok=false;
   try {await navigator.clipboard.writeText(text); ok=true;} catch {
     const input=document.createElement('textarea');input.style.cssText='position:fixed;opacity:0';input.value=text;trigger.after(input);input.select();
-    try {ok=document.execCommand('copy');} finally {input.remove();trigger.focus({preventScroll:true});}
+    try {ok=document.execCommand('copy');} catch {ok=false;} finally {input.remove();trigger.focus({preventScroll:true});}
   }
-  trigger.setAttribute('aria-live','polite');trigger.textContent=ok?'Скопировано':'Выдели и скопируй текст';
+  if(trigger.dataset.action==='copy-command'||trigger.dataset.action==='copy-sample'){
+    const label=ok?'Скопировано':'Выдели текст';
+    trigger.dataset.label=label;
+    root.querySelector('#book-copy-status').textContent=ok?'Скопировано.':'Не удалось скопировать. Выдели текст вручную.';
+    clearTimeout(trigger.copyFeedbackTimer);
+    trigger.copyFeedbackTimer=setTimeout(()=>{trigger.dataset.label='Копировать';},2000);
+  }else{
+    trigger.setAttribute('aria-live','polite');trigger.textContent=ok?'Скопировано':'Выдели и скопируй текст';
+  }
 }
 root.addEventListener('click',e=>{
   const trigger=e.target.closest('[data-action]');
@@ -209,6 +224,7 @@ root.addEventListener('click',e=>{
   if(action==='open-beside')return useExample(true);
   if(action==='run-draft') return runExercise();
   if(action==='stop-draft')return stopExercise(exerciseRuns.get(readerKey));
+  if(action==='copy-command'||action==='copy-sample')return copyText(trigger.dataset.source??trigger.querySelector('code').textContent,trigger);
   if(action==='copy') return copyText(selectedFile==='Program.cs'?example.code:example.files[selectedFile],trigger);
   if(action==='copy-block') return copyText(trigger.closest('.copyable').querySelector('pre').textContent,trigger);
   if(action==='exit') {
@@ -217,9 +233,18 @@ root.addEventListener('click',e=>{
     window.chrome?.webview?.postMessage('close');
     return;
   }
-  if(!['menu','expand','example','file','toggle-output','answer','save','read','unsave'].includes(action))return;
-  if(action==='menu'){menuOpen=!menuOpen;reader.querySelector('.cs-side')?.classList.toggle('open',menuOpen);render();return;}
-  if(action==='expand') {state.expanded=flip(state.expanded,Number(arg));store.set('expanded',state.expanded);}
+  if(action==='menu')return toggleContents(e.detail===0);
+  if(!['expand','example','file','toggle-output','answer','save','read','unsave'].includes(action))return;
+  if(action==='expand'){
+    state.expanded=flip(state.expanded,Number(arg));store.set('expanded',state.expanded);
+    if(trigger.closest('#book-contents,.cs-side')){
+      const side=reader.querySelector('.cs-side .cs-sections');
+      if(side)side.innerHTML=contents();
+      refreshContentsPanel();glyphs();
+      if(e.detail===0&&contentsPanel.hidden)side?.querySelector('[data-action="expand:'+Number(arg)+'"]')?.focus({preventScroll:true});
+      return;
+    }
+  }
   if(action==='example') { state.example=Number(arg);selectedFile='Program.cs';store.set('example/'+lesson.id,state.example); }
   if(action==='file') selectedFile=['Program.cs',...Object.keys(example.files||{}).filter(x=>x!=='Program.cs')][Number(arg)]||'Program.cs';
   if(action==='toggle-output') hideExampleOutput=!hideExampleOutput;

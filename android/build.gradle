@@ -3,9 +3,10 @@ plugins {
 }
 
 def webRoot = file(providers.gradleProperty('webRoot').getOrElse('../wwwroot'))
+def sharedCloudConfig = '../cloud-sync.defaults.json'
 def localConfig = file('cloud-sync.json')
 def cloudConfig = file(providers.gradleProperty('cloudConfig').getOrElse(
-        localConfig.isFile() ? 'cloud-sync.json' : 'cloud-sync.example.json'))
+        localConfig.isFile() ? 'cloud-sync.json' : sharedCloudConfig))
 if (providers.gradleProperty('outputDir').isPresent()) {
     layout.buildDirectory.set(file(providers.gradleProperty('outputDir').get()))
 }
@@ -28,7 +29,7 @@ def stageAssets = tasks.register('stageBookAssets', Sync) {
     }
 }
 
-def previewConfig = file(providers.gradleProperty('previewCloudConfig').getOrElse('cloud-sync.example.json'))
+def previewConfig = file(providers.gradleProperty('previewCloudConfig').getOrElse(sharedCloudConfig))
 def previewAssets = layout.buildDirectory.dir('generated/previewCloudAssets')
 def stagePreviewConfig = tasks.register('stagePreviewConfig', Sync) {
     into previewAssets

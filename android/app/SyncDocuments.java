@@ -32,7 +32,7 @@ final class SyncDocuments {
         Map<Uri, Integer> result = new HashMap<>();
         if ("folder".equals(connection.optString("provider"))) result.put(Uri.parse(connection.optString("tree")), WRITE);
         if ("documents".equals(connection.optString("provider"))) {
-            result.put(Uri.parse(connection.optString("incoming")), READ);
+            if (connection.has("incoming")) result.put(Uri.parse(connection.optString("incoming")), READ);
             result.put(Uri.parse(connection.optString("outgoing")), WRITE);
         }
         return result;
@@ -89,20 +89,33 @@ final class SyncDocuments {
                 binding.put("tree", folder.toString());
             } else {
                 String owner = device(request);
-                Uri incoming = login.chooseReplica(null, false, null);
-                acquired.put(incoming, READ);
-                String peer = DocumentPair.verifyIncoming(resolver, incoming, owner);
-                boolean create = login.createPhoneDocument();
-                Uri outgoing = login.chooseReplica("csharpbook-v1-" + owner + ".json", create, incoming);
-                acquired.put(outgoing, WRITE);
-                if (incoming.equals(outgoing)) throw new CloudLogin.UserError("Выбери отдельный файл для телефона.");
                 JSONObject current = credentials.read();
-                if ("documents".equals(current.optString("provider")) && owner.equals(current.optString("owner")) &&
-                    outgoing.toString().equals(current.optString("outgoing")))
-                    DocumentPair.recover(resolver, outgoing, owner, journal);
-                boolean empty = DocumentPair.verifyOutgoing(resolver, outgoing, owner, create);
-                binding.put("incoming", incoming.toString()).put("peer", peer)
-                    .put("outgoing", outgoing.toString()).put("owner", owner).put("newEmpty", empty);
+                String mode = request.optString("mode", "pair");
+                boolean addPeer = "add-peer".equals(mode);
+                Uri incoming = null;
+                if (addPeer) {
+                    if (!"documents".equals(current.optString("provider")) || !owner.equals(current.optString("owner")) ||
+                            !current.has("outgoing")) throw new CloudLogin.UserError("Сначала подключи файл телефона.");
+                    binding = current;
+                }
+                if (addPeer || "pair".equals(mode)) {
+                    Uri initial = addPeer ? Uri.parse(current.getString("outgoing")) : null;
+                    incoming = login.chooseReplica(null, false, initial);
+                    acquired.put(incoming, READ);
+                    String peer = DocumentPair.verifyIncoming(resolver, incoming, owner);
+                    binding.put("incoming", incoming.toString()).put("peer", peer);
+                } else if (!"phone-first".equals(mode)) throw new CloudLogin.UserError("Неизвестный способ подключения файлов.");
+                if (!addPeer) {
+                    boolean create = login.createPhoneDocument();
+                    Uri outgoing = login.chooseReplica("csharpbook-v1-" + owner + ".json", create, incoming);
+                    acquired.put(outgoing, WRITE);
+                    if (outgoing.equals(incoming)) throw new CloudLogin.UserError("Выбери отдельный файл для телефона.");
+                    if ("documents".equals(current.optString("provider")) && owner.equals(current.optString("owner")) &&
+                        outgoing.toString().equals(current.optString("outgoing")))
+                        DocumentPair.recover(resolver, outgoing, owner, journal);
+                    boolean empty = DocumentPair.verifyOutgoing(resolver, outgoing, owner, create);
+                    binding.put("outgoing", outgoing.toString()).put("owner", owner).put("newEmpty", empty);
+                }
             }
             saveConnection(binding);
         } catch (Exception e) {
@@ -124,12 +137,13 @@ final class SyncDocuments {
         throw new CloudLogin.UserError("Неизвестная операция синхронизации.");
     }
     private Object pair(JSONObject request, String op, JSONObject binding) throws Exception {
-        String owner = binding.getString("owner"), peer = binding.getString("peer");
+        String owner = binding.getString("owner"), peer = binding.optString("peer");
         Uri outgoing = Uri.parse(binding.getString("outgoing"));
         boolean empty = binding.optBoolean("newEmpty");
         if ("list".equals(op)) {
             DocumentPair.recover(resolver, outgoing, owner, journal);
-            JSONArray ids = new JSONArray().put(peer);
+            JSONArray ids = new JSONArray();
+            if (!peer.isEmpty()) ids.put(peer);
             if (empty) {
                 if (DocumentPair.read(resolver, outgoing, owner, true) == null) return ids;
                 credentials.save(binding.put("newEmpty", false));
