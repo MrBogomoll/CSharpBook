@@ -1,7 +1,7 @@
 import {connectCompletions} from './completion.js';
 import {
   EditorState, EditorView, StateEffect, StateField, Decoration, lineNumbers,
-  keymap, defaultKeymap, history, historyKeymap, StreamLanguage,
+  keymap, defaultKeymap, history, historyKeymap, undo, redo, undoDepth, redoDepth, StreamLanguage,
   HighlightStyle, syntaxHighlighting, syntaxTree, csharp, tags
 } from './codemirror.js';
 
@@ -45,22 +45,27 @@ const marks = StateField.define({
   provide: field => EditorView.decorations.from(field)
 });
 
-export function createCodeEditor(host, panel, file, source, onChange, onRun, project) {
+export function createCodeEditor(host, panel, file, source, onChange, onRun, project, onHistory) {
   const documents = new Map();
   let name = file;
   let markKey = '';
   let receiving = false;
   let completions;
   function close() {completions?.close();}
-  function buildState(text) {
-    return EditorState.create({doc: text, extensions: [
+  function reportHistory(state) {onHistory(undoDepth(state) > 0, redoDepth(state) > 0);}
+  function buildState(text,selection) {
+    return EditorState.create({doc: text, selection, extensions: [
       lineNumbers(), history(), marks, language, syntaxHighlighting(colors),
       keymap.of([{key: 'Mod-Enter', run: () => { close(); onRun(); return true; }},
         ...defaultKeymap, ...historyKeymap]),
       EditorView.contentAttributes.of({class: 'cx-input', 'aria-label': 'Код C#, ' + name,
         'aria-keyshortcuts': 'Control+Enter Meta+Enter', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: 'false'}),
       EditorView.updateListener.of(update => {
-        if (update.docChanged) { markKey = ''; if (!receiving) onChange(name, update.state.doc.toString()); }
+        if (update.docChanged) {
+          markKey = '';
+          reportHistory(update.state);
+          if (!receiving) onChange(name, update.state.doc.toString());
+        }
         if (update.docChanged || update.selectionSet) completions?.suggest();
       }),
       EditorState.phrases.of({'line number': 'Номер строки', 'Control character': 'Управляющий символ'})
@@ -82,23 +87,35 @@ export function createCodeEditor(host, panel, file, source, onChange, onRun, pro
 
   return {
     close, select, replace,
+    undo: () => undo(view),
+    redo: () => redo(view),
     revealCaret() {
       if (view.hasFocus) view.dispatch({effects:EditorView.scrollIntoView(view.state.selection.main.head, {y:'nearest'})});
     },
-    updateFile(fileName, text) {
-      if (fileName !== name) {
-        if (documents.get(fileName)?.doc.toString() !== text) documents.delete(fileName);
+    updateFile(fileName, text, external) {
+      const state = fileName === name ? view.state : documents.get(fileName);
+      if (!state || state.doc.toString() === text) return;
+      const {anchor, head} = state.selection.main;
+      const selection = {anchor:Math.min(anchor,text.length), head:Math.min(head,text.length)};
+      if (external) {
+        if (fileName !== name) documents.delete(fileName);
+        else {
+          markKey = '';
+          close();
+          view.setState(buildState(text,selection));
+          reportHistory(view.state);
+        }
         return;
       }
-      if (view.state.doc.toString() === text) return;
-      const {anchor, head} = view.state.selection.main;
+      const reset = state.update({changes:{from:0,to:state.doc.length,insert:text}, selection, userEvent:'input.reset'});
+      if (fileName !== name) {documents.set(fileName,reset.state); return;}
       receiving = true;
       try {
-        view.dispatch({
-          changes: {from:0, to:view.state.doc.length, insert:text},
-          selection:{anchor:Math.min(anchor,text.length), head:Math.min(head,text.length)}
-        });
+        view.dispatch(reset);
       } finally { receiving = false; }
+    },
+    discardRemovedFiles(files) {
+      for (const fileName of documents.keys()) if (!files.has(fileName)) documents.delete(fileName);
     },
     switchFile(next, text) {
       if (name === next) return;
@@ -106,6 +123,7 @@ export function createCodeEditor(host, panel, file, source, onChange, onRun, pro
       name = next;
       markKey = '';
       view.setState(documents.get(name) || buildState(text));
+      reportHistory(view.state);
       close();
     },
     mark(issue) {

@@ -33,6 +33,24 @@ html {scrollbar-gutter:auto}
 #book-workspace.resizing iframe {pointer-events:none}
 #book-console {display:flex;flex-direction:column;background:var(--cs-surface)}
 #editor-host {min-width:0;flex:1;overflow:auto}
+.page-scroll-frame {min-width:0;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr)}
+#book-console > .page-scroll-frame {flex:1}
+.page-scroll-frame:has(> #book-primary[hidden]),.page-scrollbar[hidden],
+.page-scroll-frame:has(> #editor-host .cx-console.is-fullscreen) > .page-scrollbar {display:none}
+.page-scroll-frame > :is(#book-primary,#editor-host) {scrollbar-width:none}
+.page-scroll-frame > :is(#book-primary,#editor-host)::-webkit-scrollbar:vertical {width:0}
+.page-scrollbar {position:relative;width:18px;min-height:0;touch-action:none;user-select:none;cursor:pointer;color:var(--cs-violet);background:var(--cs-surface)}
+.page-scrollbar::before,.page-scroll-thumb::after {content:"";position:absolute;inset-block:2px;left:50%;transform:translateX(-50%);border-radius:99px}
+.page-scrollbar::before {width:3px;background:var(--cs-line)}
+.page-scroll-thumb {display:block;position:absolute;inset:0 0 auto;pointer-events:none}
+.page-scroll-thumb::after {width:6px;background:currentColor}
+.page-scrollbar.dragging .page-scroll-thumb::after,.page-scrollbar:focus-visible .page-scroll-thumb::after {width:9px}
+.page-scrollbar:focus-visible {outline:2px solid currentColor;outline-offset:-2px}
+@media(any-pointer:coarse) { .page-scrollbar {width:24px} }
+@media(forced-colors:active) {
+  .page-scrollbar::before,.page-scroll-thumb::after {forced-color-adjust:none;background:ButtonText}
+  .page-scrollbar::before {background:GrayText}
+}
 #editor-host>.cs-console-page {width:100%;min-width:0}
 #app:not(.has-dock):has(.cx-console.is-fullscreen) > :is(#book-header,#book-bottom),
 #book-console:has(.cx-console.is-fullscreen) > .dock-toolbar {display:none}
