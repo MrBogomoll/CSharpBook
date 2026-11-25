@@ -180,11 +180,11 @@ function closeConsole(key) {
   const hadFocus=tab.group.contains(document.activeElement);
   tab.cleanup?.();tab.host.remove();tab.group.remove();consoleTabs.delete(key);
   if(activeConsole===key){
-    activeConsole='';
     if(consoleTabs.size)selectConsole([...consoleTabs.keys()].at(-1));
-    else {store.set('console',null);if(state.page==='console')resumeReading();else render();}
+    else newConsole();
+  }else{
+    rememberTabs();paintConsoleTabs();
   }
-  rememberTabs();paintConsoleTabs();
   if(hadFocus)consoleTabs.get(activeConsole)?.group.firstElementChild.focus({preventScroll:true});
 }
 // Older saved tabs contain only the edited text. Recover their template from
