@@ -57,7 +57,7 @@ internal static class Program
         catch (Exception ex)
         {
             if (serveOnly) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
-            else MessageBox.Show(ex.GetBaseException().Message, "Учебник C#", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            else MessageBox.Show(ex.GetBaseException().Message, "Sharpwise", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -78,7 +78,7 @@ internal static class Program
         {
             this.root=root;
             cloud = new CloudSync(this);
-            Text="Учебник C#"; Width=1150; Height=850; MinimumSize=new Size(360,450);
+            Text="Sharpwise"; Width=1150; Height=850; MinimumSize=new Size(360,450);
             StartPosition=FormStartPosition.CenterScreen; Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             Controls.Add(view);
             Shown+=async (_,_) => {

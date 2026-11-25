@@ -44,7 +44,7 @@ android {
         applicationId 'ru.csharpbook.reader'
         minSdk 28
         targetSdk 35
-        manifestPlaceholders = [bookLabel: 'Учебник C#']
+        manifestPlaceholders = [bookLabel: 'Sharpwise']
         buildConfigField 'boolean', 'PRODUCTION_UPDATES', 'true'
     }
     buildFeatures { buildConfig = true }
@@ -54,7 +54,7 @@ android {
             applicationIdSuffix '.preview'
             signingConfig signingConfigs.debug
             matchingFallbacks = ['release']
-            manifestPlaceholders = [bookLabel: 'Учебник C# · Тест']
+            manifestPlaceholders = [bookLabel: 'Sharpwise · Тест']
             buildConfigField 'boolean', 'PRODUCTION_UPDATES', 'false'
         }
     }

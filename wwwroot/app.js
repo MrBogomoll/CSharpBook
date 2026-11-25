@@ -45,7 +45,7 @@ function syncMarks() {
 }
 function settingsView() {
   const theme=store.get('theme','auto');
-  return '<main class="settings-view"><h1>Настройки</h1><p>Учебник C# · Версия 0.3.1</p><fieldset><legend>Оформление учебника</legend>'+
+  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия 0.3.2</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
     '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
     '<section id="book-cloud-sync" hidden></section>'+
@@ -152,9 +152,9 @@ function paintReader() {
 function render(forceReader=false) {
   const lesson=findLesson(state.lesson), page=state.page;
   const reading=page==='lesson'||page==='chapter', full=page==='console';
-  document.title=({home:'C# с нуля',lesson:lesson.title,chapter:readingChapter()?.title,saved:'Закладки',console:'Консоль',choose:'Вторая панель',settings:'Настройки',exit:'До встречи'})[page]+' · Учебник C#';
+  document.title=({home:'C# с нуля',lesson:lesson.title,chapter:readingChapter()?.title,saved:'Закладки',console:'Консоль',choose:'Вторая панель',settings:'Настройки',exit:'До встречи'})[page]+' · Sharpwise';
   const splitLabel=split?'Скрыть вторую панель':'Разделить экран';
-  root.querySelector('#book-header').innerHTML=secondaryPane?secondaryHeader(reading):'<header class="cs-top">'+button('go:home','<span class="cs-logo" aria-hidden="true">C#</span>Учебник C#','cs-brand','aria-label="На главную"')+nav('cs-global')+
+  root.querySelector('#book-header').innerHTML=secondaryPane?secondaryHeader(reading):'<header class="cs-top">'+button('go:home','<span class="cs-logo" aria-hidden="true">C#</span>Sharpwise','cs-brand','aria-label="На главную"')+nav('cs-global')+
     '<div class="header-tools">'+(reading?button('menu',icon(menuOpen?'x':'menu')+'Содержание','cs-mobile-menu','aria-expanded="'+menuOpen+'"'):'')+
     button('dock',icon('columns-2'),'settings-icon'+(split?' on':''),'aria-label="'+splitLabel+'" title="'+splitLabel+'" aria-pressed="'+split+'"')+
     button('go:settings',icon('settings'),'settings-icon'+(page==='settings'?' on':''),'aria-label="Настройки" title="Настройки"')+'</div></header>';

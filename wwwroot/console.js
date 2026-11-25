@@ -84,7 +84,7 @@ function mountConsolePage(container, {
   const back = onBack ? button('back','К уроку','arrow-left','cx-back') : '';
   const trail = [topicTitle, exampleTitle].filter(Boolean).map(html).join(' · ');
   page.innerHTML = '<div class="cx-product">' +
-    (showHeader ? '<header class="cx-bar"><div class="cx-brand"><span class="cx-logo" aria-hidden="true">C#</span>Учебник C#</div>' + back + '</header>' : '') +
+    (showHeader ? '<header class="cx-bar"><div class="cx-brand"><span class="cx-logo" aria-hidden="true">C#</span>Sharpwise</div>' + back + '</header>' : '') +
     '<div class="cx-content"><div class="cx-head"><div>' + (trail ? '<div class="cx-crumb">' + trail + '</div>' : '') +
     '<h1>Консоль</h1></div>' + (showHeader ? '' : back) + '</div>' +
     '<div class="cx-grid"><section class="cx-editor" aria-label="Редактор C#"><div class="cx-filebar"><div class="cx-files"></div>' +

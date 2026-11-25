@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Учебник C# с нуля",
-  "short_name": "Учебник C#",
+  "name": "Sharpwise — учебник C#",
+  "short_name": "Sharpwise",
   "lang": "ru",
   "description": "Уроки C#, примеры и консоль для практики",
   "start_url": "./",

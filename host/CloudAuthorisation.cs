@@ -91,7 +91,7 @@ internal static class CloudAuthorisation
             bool granted = !string.IsNullOrEmpty(code) && code.Length <= 4096 && !q.ContainsKey("error");
             context.Response.ContentType = "text/plain; charset=utf-8";
             context.Response.Headers.CacheControl = "no-store";
-            await context.Response.WriteAsync(granted ? "Вход подтверждён. Вернись в Учебник C#." : "Вход отменён. Можно вернуться в Учебник C#.");
+            await context.Response.WriteAsync(granted ? "Вход подтверждён. Вернись в Sharpwise." : "Вход отменён. Можно вернуться в Sharpwise.");
             if (granted) result.TrySetResult(code);
             else result.TrySetException(new InvalidOperationException("Вход отменён. Локальный прогресс сохранён."));
         });
