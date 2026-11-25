@@ -40,6 +40,7 @@ function validValue(key, value) {
       ['file','endAnchor'].every(name => value[name] === undefined || typeof value[name] === 'string'));
   }
   return value === null || (plain(value) && typeof value.source === 'string' &&
+    (value.title === undefined || typeof value.title === 'string') &&
     plain(value.files) && Object.entries(value.files).every(([name, text]) =>
       !['__proto__','constructor','prototype'].includes(name) && typeof text === 'string'));
 }

@@ -137,6 +137,53 @@ test('concurrent drafts persist across further editing, explicit resolution and 
   assert.deepEqual(b.engine.conflicts(), []);
 });
 
+test('renaming, deleting, and undoing a closed console draft sync under its original key', async () => {
+  const key = 'secondary/scratch/1/abc', drive = cloud();
+  const old = {source:'Write();', files:{'Text.cs':'class Text {}'}};
+  const phone = device('Android', [[key, old]]), pc = device('ПК');
+  await phone.engine.sync(drive);
+  await pc.engine.sync(drive);
+  const named = {...pc.store.get(key), title:'Вывод'};
+  pc.store.set(key, named);
+  await pc.engine.sync(drive);
+  await phone.engine.sync(drive);
+  assert.deepEqual(phone.store.get(key), named);
+  assert.deepEqual(phone.engine.conflicts(), []);
+  const backup = await phone.engine.exportSnapshot();
+  phone.store.set(key, null);
+  await phone.engine.sync(drive);
+  await pc.engine.sync(drive);
+  assert.equal(pc.store.get(key), null);
+  await pc.engine.importSnapshot(backup);
+  assert.equal(pc.store.get(key), null);
+  phone.store.set(key, named);
+  await phone.engine.sync(drive);
+  await pc.engine.sync(drive);
+  assert.deepEqual(pc.store.get(key), named);
+  assert.deepEqual(pc.engine.conflicts(), []);
+});
+
+test('concurrent rename and deletion retain both choices for console drafts', async () => {
+  const key = 'editor/intro/0', drive = cloud();
+  const draft = {source:'edited',files:{},initial:{source:'example',files:{}}};
+  const phone = device('Android', [[key, draft]]), pc = device('ПК');
+  await phone.engine.sync(drive);
+  await pc.engine.sync(drive);
+  phone.store.set(key, {...draft, title:'Моя программа'});
+  pc.store.set(key, null);
+  await phone.engine.sync(drive);
+  await pc.engine.sync(drive);
+  const variants = pc.engine.conflicts()[0].variants;
+  assert.equal(variants.length, 2);
+  assert.ok(variants.some(item => item.value === null));
+  const keep = variants.find(item => item.value?.title === 'Моя программа');
+  pc.engine.resolve(key, keep.id);
+  await pc.engine.sync(drive);
+  await phone.engine.sync(drive);
+  assert.deepEqual(phone.store.get(key), {...draft,title:'Моя программа'});
+  assert.deepEqual(phone.engine.conflicts(), []);
+});
+
 test('local typing and conflict choices during network requests survive', async () => {
   const drive = cloud(), key = 'draft/intro';
   const a = device('A', [[key,'before']]), b = device('B');

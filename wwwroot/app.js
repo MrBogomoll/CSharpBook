@@ -51,7 +51,7 @@ function settingsView() {
   let channel='';
   if (betaVersion) channel='<p>Официальная бета. Следующая стабильная версия установится поверх неё и сохранит твой прогресс.</p>';
   else if (preview) channel='<p>Тестовая сборка. Перед обновлением ты увидишь номер стабильного выпуска.</p>';
-  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.4.4')+'</p><fieldset><legend>Оформление учебника</legend>'+
+  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.4.5')+'</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
     '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
     solvedList('course')+'<section id="book-cloud-sync" hidden></section>'+
@@ -350,10 +350,12 @@ function refreshCloudChanges(changes) {
 }
 function describeSyncKey(key) {
   const [kind, id, step, file]=key.replace(/^secondary\//,'').split('/');
+  const title=store.values.get(key)?.title;
+  if(typeof title==='string' && title && ['editor','scratch','snippet'].includes(kind))return title;
   const lesson=findLesson(id), exercise=lesson?.exercises.find(item=>item.id===step);
   if(kind==='draft')return [lesson?.title || id,exercise?.title || 'Упражнение',file || 'Program.cs'].join(' · ');
   if(kind==='editor')return [lesson?.title || 'Консоль', lesson?.examples[Number(step)]?.name || 'Черновик'].join(' · ');
-  if(kind==='scratch')return 'Программа '+id;
+  if(kind==='scratch')return id==='0'?'Программа':'Программа '+id;
   if(kind==='snippet')return [lesson?.title || id, 'Фрагмент кода'].join(' · ');
   if(kind==='note')return 'Заметка';
   return key;
