@@ -45,8 +45,9 @@ public final class BookActivity extends Activity {
         WebSettings settings = web.getSettings();
         updater = new BookUpdater(this);
         cloud = new CloudBridge(this, origin);
-        settings.setUserAgentString(settings.getUserAgentString() + " CSharpBookAndroid/1" +
-            (BuildConfig.PRODUCTION_UPDATES ? "" : " SharpwisePreview/1"));
+        String channel = BuildConfig.PRODUCTION_UPDATES ? "" : " SharpwisePreview/1";
+        if (BuildConfig.VERSION_NAME.contains("_b.")) channel = " SharpwiseBeta/" + BuildConfig.VERSION_NAME;
+        settings.setUserAgentString(settings.getUserAgentString() + " CSharpBookAndroid/1" + channel);
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);

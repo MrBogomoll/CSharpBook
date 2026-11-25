@@ -17,8 +17,6 @@ final class BookUpdater {
     static final int PERMISSION = 723, INSTALL = 724;
     static final String REPO = "https://github.com/MrBogomoll/CSharpBook";
     private static final String STABLE_PACKAGE = "ru.csharpbook.reader";
-    // Release certificate of the published stable APK. The preview has a separate signing key.
-    private static final String STABLE_CERT = "2e91cf6c77f970253756178b46a987e2f9bfbde7f6e81a678170764674bfa0f3";
     private static final String LATEST = "https://api.github.com/repos/MrBogomoll/CSharpBook/releases/latest";
     private final BookActivity activity;
     private final SharedPreferences prefs;
@@ -58,7 +56,7 @@ final class BookUpdater {
             int comparison = Integer.compare(Integer.parseInt(available[i]), Integer.parseInt(installed[i]));
             if (comparison != 0) return comparison > 0 ? version : null;
         }
-        return null;
+        return current.matches("[0-9]+\\.[0-9]+\\.[0-9]+_b\\.[1-9][0-9]*") ? version : null;
     }
 
     private static HttpURLConnection connection(String address, boolean asset) throws IOException {
@@ -129,7 +127,7 @@ final class BookUpdater {
     private boolean officialSigner(PackageInfo info) throws Exception {
         if (info.signingInfo == null || info.signingInfo.hasMultipleSigners()) return false;
         for (Signature signature : info.signingInfo.getSigningCertificateHistory())
-            if (STABLE_CERT.equals(hex(MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())))) return true;
+            if (BuildConfig.STABLE_CERT_SHA256.equals(hex(MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())))) return true;
         return false;
     }
     private PackageInfo installedStable() throws Exception {
@@ -168,7 +166,8 @@ final class BookUpdater {
                 PackageInfo installed = installedStable();
                 String version = stableVersion(tag);
                 if (installed != null && newer(tag, installed.versionName) == null) {
-                    if (BuildConfig.PRODUCTION_UPDATES) post("У тебя последняя версия.", false);
+                    if (BuildConfig.PRODUCTION_UPDATES) post(installed.versionName.contains("_b.")
+                        ? "Стабильный выпуск для этой беты ещё не опубликован." : "У тебя последняя версия.", false);
                     else activity.runOnUiThread(() -> { if (alive()) offerStable(installed.versionName, true); });
                     return;
                 }

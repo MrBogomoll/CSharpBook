@@ -47,6 +47,7 @@ android {
         targetSdk 35
         manifestPlaceholders = [bookLabel: 'Sharpwise']
         buildConfigField 'boolean', 'PRODUCTION_UPDATES', 'true'
+        buildConfigField 'String', 'STABLE_CERT_SHA256', '"' + file('stable-cert.sha256').text.trim() + '"'
     }
     buildFeatures { buildConfig = true }
     buildTypes {
@@ -68,6 +69,21 @@ android {
     sourceSets.preview.assets.srcDirs = [previewAssets]
     // BookServer serves byte ranges through AssetManager.openFd.
     androidResources.noCompress.add('')
+}
+def betaNumber = providers.gradleProperty('officialBetaNumber').orNull
+def betaCode = providers.gradleProperty('officialBetaCode').orNull
+if (betaNumber != null || betaCode != null) {
+    def planned = new groovy.xml.XmlSlurper(false, false).parse(file('AndroidManifest.xml'))
+    if (!(betaNumber ==~ /[1-9][0-9]{0,8}/) || !(betaCode ==~ /[1-9][0-9]{0,9}/) ||
+            betaCode.toLong() >= planned.'@android:versionCode'.text().toLong()) {
+        throw new GradleException('Set officialBetaNumber and a positive officialBetaCode below the planned stable versionCode.')
+    }
+    androidComponents.onVariants(androidComponents.selector().withBuildType('release')) { variant ->
+        variant.outputs.each { output ->
+            output.versionName.set(planned.'@android:versionName'.text() + '_b.' + betaNumber)
+            output.versionCode.set(betaCode.toInteger())
+        }
+    }
 }
 tasks.named('preBuild').configure { dependsOn stageAssets }
 tasks.matching { it.name == 'prePreviewBuild' }.configureEach { dependsOn stagePreviewConfig }

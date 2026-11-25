@@ -5,17 +5,38 @@ param(
     [string]$JavaHome = $env:JAVA_HOME,
     [string]$OutputApk,
     [string]$CloudConfig,
-    [switch]$Preview
+    [switch]$Preview,
+    [ValidateRange(1, 999999999)][int]$BetaNumber,
+    [ValidateRange(1, 2100000000)][int]$BetaVersionCode,
+    [string]$SigningDir
 )
 $ErrorActionPreference = 'Stop'
 $WorkDir = (New-Item -Type Directory -Force -Path $WorkDir).FullName
 $WebRoot = (Resolve-Path -LiteralPath $WebRoot).Path
+[xml]$manifest = Get-Content -Raw -Encoding utf8 (Join-Path $PSScriptRoot 'AndroidManifest.xml')
+$namespace = 'http://schemas.android.com/apk/res/android'
+$version = $manifest.manifest.GetAttribute('versionName', $namespace)
+if (($BetaNumber -and $Preview) -or ([bool]$BetaNumber -ne [bool]$BetaVersionCode)) {
+    throw 'Для официальной беты укажи вместе -BetaNumber и -BetaVersionCode. Для отдельной тестовой копии используй -Preview.'
+}
+if ($BetaNumber) {
+    if ($BetaVersionCode -ge [int]$manifest.manifest.GetAttribute('versionCode', $namespace)) {
+        throw 'Официальной бете нужен versionCode меньше запланированного стабильного выпуска.'
+    }
+    $version = "${version}_b.$BetaNumber"
+}
+if (!$Preview) {
+    if (!$SigningDir) { $SigningDir = Join-Path $WorkDir 'signing' }
+    $key = Join-Path $SigningDir 'csharp-book-beta.p12'
+    $credential = Join-Path $SigningDir 'password.dpapi'
+    if (!(Test-Path -LiteralPath $key -PathType Leaf) -or !(Test-Path -LiteralPath $credential -PathType Leaf)) {
+        throw 'Для официального APK нужна папка подписи стабильной 0.2.0 с csharp-book-beta.p12 и password.dpapi. Укажи её через -SigningDir.'
+    }
+}
 if (!(Test-Path -LiteralPath (Join-Path $WebRoot 'runtime/net11.bin'))) { throw 'В wwwroot не найдена среда .NET 11.' }
 if (!$JavaHome) { $JavaHome = 'C:/Program Files/Java/jdk-25.0.2' }
 if (!(Test-Path -LiteralPath (Join-Path $JavaHome 'bin/javac.exe'))) { throw 'Передай путь к JDK через -JavaHome.' }
 if (!$OutputApk) {
-    [xml]$manifest = Get-Content -Raw -Encoding utf8 (Join-Path $PSScriptRoot 'AndroidManifest.xml')
-    $version = $manifest.manifest.GetAttribute('versionName', 'http://schemas.android.com/apk/res/android')
     $suffix = if ($Preview) { 'preview' } else { 'Android' }
     $OutputApk = Join-Path $WorkDir "CSharpBook-$version-$suffix.apk"
 }
@@ -61,6 +82,7 @@ try {
     $env:ANDROID_HOME = $sdk
     $env:ANDROID_SDK_ROOT = $sdk
     $arguments = @('--project-dir', $PSScriptRoot, "-PwebRoot=$WebRoot", "-PoutputDir=$job/build")
+    if ($BetaNumber) { $arguments += @("-PofficialBetaNumber=$BetaNumber", "-PofficialBetaCode=$BetaVersionCode") }
     if ($CloudConfig) {
         $cloudPath = (Resolve-Path -LiteralPath $CloudConfig).Path
         $configProperty = if ($Preview) { 'previewCloudConfig' } else { 'cloudConfig' }
@@ -82,27 +104,28 @@ if ($apks.Count -ne 1) { throw 'Gradle должен создать ровно о
 $apk = $apks[0].FullName
 Run 'python' @('-X','utf8',"$PSScriptRoot/verify_assets.py",$apk,$WebRoot)
 if (!$Preview) {
-    $keyDir=(New-Item -Type Directory -Path (Join-Path $WorkDir 'signing') -Force).FullName
-    $key=Join-Path $keyDir 'csharp-book-beta.p12'
-    $credential=Join-Path $keyDir 'password.dpapi'
-    if (!(Test-Path -LiteralPath $credential)) {
-        if (Test-Path -LiteralPath $key) {throw 'Для существующего ключа нужен сохранённый пароль.'}
-        $rng=[security.cryptography.RandomNumberGenerator]::Create()
-        $bytes=[byte[]]::new(36); $rng.GetBytes($bytes); $rng.Dispose()
-        $secret=ConvertTo-SecureString ([Convert]::ToBase64String($bytes)) -AsPlainText -Force
-        $secret | ConvertFrom-SecureString | Set-Content -LiteralPath $credential
-    }
     $secure=(Get-Content -LiteralPath $credential -Raw).Trim() | ConvertTo-SecureString
-    $env:CSHARPBOOK_ANDROID_PASS=[System.Net.NetworkCredential]::new('',$secure).Password
+    $oldPass = $env:CSHARPBOOK_ANDROID_PASS
     try {
-        if (!(Test-Path -LiteralPath $key)) {
-            Run "$JavaHome/bin/keytool.exe" @('-genkeypair','-storetype','PKCS12','-keystore',$key,'-alias','csharpbook','-keyalg','RSA','-keysize','3072','-validity','10000','-dname','CN=CSharpBook Android local beta','-storepass:env','CSHARPBOOK_ANDROID_PASS','-keypass:env','CSHARPBOOK_ANDROID_PASS')
+        $env:CSHARPBOOK_ANDROID_PASS = [System.Net.NetworkCredential]::new('',$secure).Password
+        $cert = Join-Path $job 'signer.der'
+        Run "$JavaHome/bin/keytool.exe" @('-exportcert','-keystore',$key,'-alias','csharpbook','-storepass:env','CSHARPBOOK_ANDROID_PASS','-file',$cert)
+        $expected = (Get-Content -LiteralPath "$PSScriptRoot/stable-cert.sha256" -Raw).Trim()
+        if ((Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash -ne $expected) {
+            throw 'Сертификат ключа отличается от подписи опубликованной стабильной 0.2.0.'
         }
         Run "$JavaHome/bin/java.exe" @('-jar',"$build/lib/apksigner.jar",'sign','--ks',$key,'--ks-pass','env:CSHARPBOOK_ANDROID_PASS','--key-pass','env:CSHARPBOOK_ANDROID_PASS','--ks-key-alias','csharpbook','--v4-signing-enabled','false','--out',"$job/signed.apk",$apk)
-    } finally {Remove-Item Env:CSHARPBOOK_ANDROID_PASS -ErrorAction SilentlyContinue}
+    } finally { $env:CSHARPBOOK_ANDROID_PASS = $oldPass }
     $apk = "$job/signed.apk"
 }
-Run "$JavaHome/bin/java.exe" @('-jar',"$build/lib/apksigner.jar",'verify','--verbose','--print-certs',$apk)
+$verification = @(Run "$JavaHome/bin/java.exe" @('-jar',"$build/lib/apksigner.jar",'verify','--verbose','--print-certs',$apk))
+$verification | Write-Output
+if (!$Preview) {
+    $signers = @($verification | Select-String '^Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]{64})$')
+    if ($signers.Count -ne 1 -or $signers[0].Matches[0].Groups[1].Value -ne $expected) {
+        throw 'Подпись готового APK отличается от сертификата стабильной 0.2.0.'
+    }
+}
 Run "$build/zipalign.exe" @('-c','4',$apk)
 [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($OutputApk)) | Out-Null
 [IO.File]::Copy($apk,$OutputApk,$true)
