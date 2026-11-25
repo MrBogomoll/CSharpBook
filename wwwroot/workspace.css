@@ -115,3 +115,47 @@ html {scrollbar-gutter:auto}
 @container csapp (max-width:680px) {
   #book .pane-header .pane-chapters {display:inline-flex;align-items:center;gap:5px;padding:5px}
 }
+
+/* Keep search in the same column as the workspace toolbar, including the second pane. */
+#app {--toolbar-height:57px;--fullscreen-search-height:var(--toolbar-tool);--toolbar-edge:22px;--toolbar-tool:34px;--toolbar-gap:5px;--search-tail:calc(2 * (var(--toolbar-tool) + var(--toolbar-gap)))}
+#book .header-tools {margin-inline-start:auto;gap:var(--toolbar-gap)}
+#book .cs-product :is(.header-tools,.pane-header) > .settings-icon {
+  box-sizing:border-box;padding:0;width:var(--toolbar-tool);height:var(--toolbar-tool);flex:none
+}
+#book .pane-header {
+  min-height:var(--toolbar-height);padding-block:0;flex-wrap:nowrap;box-sizing:border-box;
+  padding-inline:var(--toolbar-edge) calc(var(--toolbar-edge) + min(var(--search-tail),max(0px,100vw - 220px)))
+}
+#book .pane-header select {min-width:0}
+#book .pane-header [data-action=find-course] {margin-inline-start:auto}
+#book .pane-titlebar h1 {min-width:0;font-size:16px;line-height:1.25;margin:0}
+#book-console {position:relative}
+#book .fullscreen-search {display:none}
+#app:not(.has-dock) #book-console:has(.cx-console.is-fullscreen) > .fullscreen-search {
+  position:absolute;z-index:4;display:grid;place-items:center;padding:0;color:#d6d0e0;
+  inset-block-start:max(var(--console-top-inset,env(safe-area-inset-top)),calc((var(--toolbar-height) - 1px - var(--fullscreen-search-height)) / 2));
+  inset-inline-end:calc(max(var(--toolbar-edge),env(safe-area-inset-right)) + var(--search-tail));
+  width:var(--toolbar-tool);height:var(--fullscreen-search-height)
+}
+@media (max-width:680px) {
+  #app {--toolbar-height:50px;--toolbar-edge:13px;--toolbar-tool:42px}
+  #book .cs-top {gap:4px}
+  #book .header-tools .cs-mobile-menu {padding-inline:4px!important}
+}
+@media (max-width:390px) {
+  #book :is(.header-tools,.pane-header) #book-contents-button span {display:none}
+  #book .header-tools #book-contents-button {justify-content:center;width:var(--toolbar-tool);height:var(--toolbar-tool)}
+}
+@media (min-width:681px) and (max-width:960px) {
+  #book .cs-top {gap:6px}
+  #book .cs-global .cs-nav-item {gap:3px;padding-inline:4px}
+}
+@media (max-width:345px) {
+  #book .cs-product .cs-brand {gap:5px;font-size:15px}
+  #book .cs-brand .cs-logo {width:28px;height:28px}
+}
+@media (pointer:coarse) { #app {--fullscreen-search-height:44px} }
+@media (min-width:681px) and (max-width:780px) {
+  #app.has-dock .cs-global {gap:2px}
+  #app.has-dock .cs-global .cs-nav-item svg {display:none}
+}

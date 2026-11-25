@@ -228,3 +228,34 @@
     :is(#book,:root) .cx-console .cx-filebar :is(.cx-history,.cx-output-toggle,.cx-copy,.cx-fullscreen) {width:36px}
   }
 }
+
+/* Space for the workspace search when the normal navigation is hidden. */
+#app:not(.has-dock) .cx-console.is-fullscreen {
+  --search-edge:max(0px,calc(max(var(--toolbar-edge),env(safe-area-inset-right)) - max(10px,env(safe-area-inset-right))))
+}
+#app:not(.has-dock) .cx-console.is-fullscreen .cx-grid.output-hidden .cx-filebar {
+  --file-search-width:var(--toolbar-tool)
+}
+@container cxapp (max-width:650px) {
+  #app:not(.has-dock) .cx-console.is-fullscreen .cx-filebar {--file-search-width:var(--toolbar-tool)}
+}
+#app:not(.has-dock) .cx-console.is-fullscreen .cx-filebar {
+  padding-inline-end:var(--search-edge);gap:1px
+}
+#app:not(.has-dock) .cx-console.is-fullscreen .cx-filebar::after {
+  content:"";order:1;flex:0 0 var(--file-search-width,0px)
+}
+#app:not(.has-dock) .cx-console.is-fullscreen .cx-product .cx-filebar :is(.cx-copy,.cx-fullscreen) {
+  order:2;flex:0 0 var(--toolbar-tool);margin-inline-start:calc(var(--toolbar-gap) - 1px);padding-inline:0;justify-content:center
+}
+#app:not(.has-dock) .cx-console.is-fullscreen .cx-filebar .cx-copy span {display:none}
+@container cxapp (min-width:651px) {
+  #app:not(.has-dock) .cx-console.is-fullscreen .cx-termbar {
+    display:grid;grid-template-columns:minmax(0,1fr) var(--toolbar-tool) var(--search-tail);
+    padding-inline-end:var(--search-edge);gap:0;align-items:center
+  }
+  #app:not(.has-dock) .cx-console.is-fullscreen .cx-termname {min-width:0;overflow:hidden;white-space:nowrap}
+  #app:not(.has-dock) .cx-console.is-fullscreen .cx-term-status {
+    grid-column:3;min-width:0;margin:0;padding-inline-start:3px;white-space:normal;overflow-wrap:anywhere
+  }
+}

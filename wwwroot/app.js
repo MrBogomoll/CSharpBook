@@ -7,6 +7,7 @@ let feedback='', hideExampleOutput=false, selectedFile='Program.cs';
 let detachHints=null;
 let cloudSync=null;
 let scrollTimer=null;
+let leavingSettings=false;
 const pagePositions=new Map();
 if ('scrollRestoration' in history) history.scrollRestoration='manual';
 function keepReadingPosition() {
@@ -51,7 +52,7 @@ function settingsView() {
   let channel='';
   if (betaVersion) channel='<p>Официальная бета. Следующая стабильная версия установится поверх неё и сохранит твой прогресс.</p>';
   else if (preview) channel='<p>Тестовая сборка. Перед обновлением ты увидишь номер стабильного выпуска.</p>';
-  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.4.9')+'</p><fieldset><legend>Оформление учебника</legend>'+
+  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.4.10')+'</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
     '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
     solvedList('course')+'<section id="book-cloud-sync" hidden></section>'+
@@ -72,12 +73,14 @@ function go(page,id,step) {
   keepReadingPosition();
   const hash='#'+page+(id!=null?'/'+encodeURIComponent(id):'')+(step?'/'+encodeURIComponent(step):'');
   if(location.hash!==hash) {
-    if(secondaryPane)history.replaceState(null,'',hash);else history.pushState(null,'',hash);
+    if(secondaryPane)history.replaceState(null,'',hash);
+    else history.pushState(page==='settings'?{settingsOrigin:location.hash||'#home'}:null,'',hash);
   }
   route();
 }
 function route() {
   if(!primary)return;
+  leavingSettings=false;
   closeContents();
   keepReadingPosition();noteMenu.hidden=true;selectionTool.hidden=true;
   const [page,arg,stepId]=location.hash.slice(1).split('/');
@@ -158,11 +161,14 @@ function render(forceReader=false) {
   const reading=page==='lesson'||page==='chapter', full=page==='console';
   document.title=({home:'C# с нуля',lesson:lesson.title,chapter:readingChapter()?.title,saved:'Закладки',console:'Консоль',choose:'Вторая панель',settings:'Настройки',exit:'До встречи'})[page]+' · Sharpwise';
   const splitLabel=split?'Скрыть вторую панель':'Разделить экран';
-  root.querySelector('#book-header').innerHTML=secondaryPane?secondaryHeader(reading):'<header class="cs-top">'+button('go:home','<img class="cs-logo" src="icons/book-192.png" width="32" height="32" alt="">Sharpwise','cs-brand','aria-label="Sharpwise — на главную"')+nav('cs-global')+
+  const titleOnly=page==='exit'||page==='choose';
+  root.querySelector('#book-header').innerHTML=titleOnly?'<header class="pane-header pane-titlebar"><h1>'+(page==='exit'?'До встречи!':'Открыть во второй панели')+'</h1>'+courseSearchButton()+'</header>':
+    secondaryPane?secondaryHeader(reading):'<header class="cs-top">'+button('go:home','<img class="cs-logo" src="icons/book-192.png" width="32" height="32" alt="">Sharpwise','cs-brand','aria-label="Sharpwise — на главную"')+nav('cs-global')+
     '<div class="header-tools">'+(reading?contentsButton('cs-mobile-menu'):'')+
-    (full?button('find-course',icon('search'),'settings-icon','aria-label="Поиск по учебнику" title="Поиск по учебнику"'):'')+
+    courseSearchButton()+
     button('dock',icon('columns-2'),'settings-icon'+(split?' on':''),'aria-label="'+splitLabel+'" title="'+splitLabel+'" aria-pressed="'+split+'"')+
-    button('go:settings',icon('settings'),'settings-icon'+(page==='settings'?' on':''),'aria-label="Настройки" title="Настройки"')+'</div></header>';
+    button('go:settings',icon('settings'),'settings-icon'+(page==='settings'?' on':''),
+      'aria-label="Настройки" aria-pressed="'+(page==='settings')+'" title="'+(page==='settings'?'Закрыть настройки':'Настройки')+'"')+'</div></header>';
   root.querySelector('#book-bottom').innerHTML=secondaryPane?'':nav('cs-mobile-nav');
   if(!full){
     reader.hidden=!reading;auxiliary.hidden=reading;
@@ -170,16 +176,13 @@ function render(forceReader=false) {
     if(page==='choose')auxiliary.innerHTML=choosePaneView();
     if(page==='home'){
       const listOpen=auxiliary.querySelector('.cs-home .solved-tasks')?.open;
-      const field=auxiliary.querySelector('#course-query');
-      const selection=field && field===document.activeElement ? [field.selectionStart,field.selectionEnd] : null;
-      auxiliary.innerHTML='<main class="cs-home">'+homeView(lesson)+'</main>';
-      if(listOpen)auxiliary.querySelector('.solved-tasks').open=true;
-      mountCourseSearch(auxiliary.querySelector('.course-search'));
-      if(selection){
-        const search=auxiliary.querySelector('#course-query');
-        search.focus({preventScroll:true});
-        search.setSelectionRange(...selection);
+      // Keep the actual text field connected during background progress and note updates.
+      if(!auxiliary.querySelector('.course-search')){
+        auxiliary.innerHTML=homeView();
+        mountCourseSearch(auxiliary.querySelector('.course-search'));
       }
+      auxiliary.querySelector('.cs-home-grid').innerHTML=homeCatalogue(lesson);
+      if(listOpen)auxiliary.querySelector('.solved-tasks').open=true;
       mountTopicIndex(auxiliary.querySelector('.topic-index'));
     }
     if(page==='saved')auxiliary.innerHTML='<main class="cs-home">'+bookmarkedPage(lesson)+'</main>';
@@ -187,9 +190,9 @@ function render(forceReader=false) {
       auxiliary.innerHTML=settingsView();
       cloudSync?.mount(auxiliary.querySelector('#book-cloud-sync'));
     }
-    if(page==='exit')auxiliary.innerHTML='<main class="settings-view"><h1>До встречи!</h1><p>'+esc(store.warning||'Прогресс сохранён. Можно закрыть приложение.')+'</p>'+button('go:home','Вернуться в учебник','cs-tool')+'</main>';
+    if(page==='exit')auxiliary.innerHTML='<main class="settings-view"><p>'+esc(store.warning||'Прогресс сохранён. Можно закрыть приложение.')+'</p>'+button('go:home','Вернуться в учебник','cs-tool')+'</main>';
   }
-  root.querySelector('#book-header').hidden=page==='exit'||page==='choose';root.querySelector('#book-bottom').hidden=page==='exit'||secondaryPane;
+  root.querySelector('#book-bottom').hidden=page==='exit'||secondaryPane;
   paintWorkspace();glyphs();positionContents();
 }
 async function copyText(text,trigger) {
@@ -212,6 +215,12 @@ root.addEventListener('toggle', e => {
   if (e.target.matches('.solved-tasks[open]')) fillSolvedList(e.target);
 }, true);
 root.addEventListener('click',e=>{
+  if(secondaryPane && !e.defaultPrevented && e.button===0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey){
+    // Route links and buttons in the second pane alike. An iframe history entry
+    // would otherwise intercept Back when closing settings in the main pane.
+    const link=e.target.closest('a[href^="#"]:not([target]):not([download])');
+    if(link){e.preventDefault();history.replaceState(null,'',link.hash);route();return;}
+  }
   const trigger=e.target.closest('[data-action]');
   if(!trigger || trigger.closest('#editor-host')) return;
   const [action,arg]=trigger.dataset.action.split(':');
@@ -227,9 +236,14 @@ root.addEventListener('click',e=>{
   if(action==='dock')return toggleDock();
   if(action==='new-console')return newConsole();
   if(action==='lesson') return go('lesson',arg);
-  if(action==='find-course'){
-    go('home');
-    auxiliary.querySelector('.course-search input')?.focus();
+  if(action==='find-course')return openCourseSearch();
+  if(action==='go' && arg==='settings' && state.page==='settings'){
+    if(history.state?.settingsOrigin){
+      if(!leavingSettings){leavingSettings=true;history.back();}
+    }else{
+      history.replaceState(null,'','#home');
+      route();
+    }
     return;
   }
   if(action==='go') return go(arg);
