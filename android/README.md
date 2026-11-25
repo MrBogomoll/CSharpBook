@@ -16,7 +16,7 @@ pwsh -File ./android/Build-Apk.ps1 -SigningDir C:\Sharpwise\signing
 
 Путь к JDK можно передать через `-JavaHome`, к итоговому APK — через `-OutputApk`. Первая сборка скачивает Gradle 9.1.0 и Android SDK 36. Gradle получает NanoHTTPD, Google Play services Auth и их зависимости из Google Maven и Maven Central. В последующих сборках используются локальные копии. Перед созданием пакета подготовь итоговые `course.json`, `sw.js` и каталоги `runtime` и `projects` в `wwwroot`.
 
-Прямой вход в Яндекс Диск включён в обычной и тестовой сборках. Gradle упаковывает `../cloud-sync.defaults.json` в `assets/cloud-sync.json`. Чтобы добавить Google или использовать другой ClientID Яндекса, заполни копию `cloud-sync.example.json` и передай путь через `-CloudConfig`. Обычная сборка также поддерживает локальный файл `android/cloud-sync.json`.
+Прямой вход в Google Диск и Яндекс Диск включён в обычной и тестовой сборках. Gradle упаковывает `../cloud-sync.defaults.json` в `assets/cloud-sync.json`. Чтобы использовать собственную регистрацию провайдера, заполни копию `cloud-sync.example.json` и передай путь через `-CloudConfig`. Обычная сборка также поддерживает локальный файл `android/cloud-sync.json`.
 
 Стабильная версия и бета используют один пакет `ru.csharpbook.reader.preview` и сертификат опубликованной тестовой 0.3.5. Для первого перехода с 0.3.5 открой стабильный APK вручную и подтверди обновление. Следующие обновления доступны из настроек.
 

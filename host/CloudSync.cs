@@ -93,8 +93,16 @@ internal sealed class CloudSync(IWin32Window owner)
                 return null;
             }
             // Keep the old connection intact if the user cancels a switch or if the new login fails.
+            GoogleDesktopRegistration? imported = null;
+            if (provider == "google" && string.IsNullOrWhiteSpace(config.GoogleDesktopClientSecret))
+            {
+                var registration = GoogleDesktopRegistration.Saved(config.GoogleDesktopClientId)
+                    ?? (imported = GoogleClientDialog.Ask(owner, config.GoogleDesktopClientId));
+                config = config with { GoogleDesktopClientSecret = registration.ClientSecret };
+            }
             var replacement = await CloudAuthorisation.Connect(provider, config, cancel);
             await new CloudFiles(replacement).List(cancel);
+            imported?.Save();
             replacement.Save();
             return null;
         }
@@ -136,6 +144,8 @@ internal sealed class CloudSync(IWin32Window owner)
                 try { return await Run(session); }
                 catch (CloudReauthoriseException) { /* Provider revoked the access token before its expiry. */ }
             }
+            if (provider == "google" && string.IsNullOrWhiteSpace(config.GoogleDesktopClientSecret))
+                config = config with { GoogleDesktopClientSecret = GoogleDesktopRegistration.Saved(session.ClientId)?.ClientSecret ?? "" };
             session = await CloudAuthorisation.Refresh(session, config, cancel);
             session.Save();
             return await Run(session);

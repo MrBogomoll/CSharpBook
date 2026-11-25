@@ -12,10 +12,18 @@ internal sealed record CloudClients(string GoogleDesktopClientId = "", string Go
     internal static CloudClients Load()
     {
         string path = Path.Combine(DirectoryPath, "cloud-sync.json");
-        using var stream = File.Exists(path) ? File.OpenRead(path) :
-            typeof(CloudClients).Assembly.GetManifestResourceStream("CSharpBook.CloudSync.json");
-        return stream is null ? new() : JsonSerializer.Deserialize<CloudClients>(stream,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+        using var embedded = typeof(CloudClients).Assembly.GetManifestResourceStream("CSharpBook.CloudSync.json");
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var defaults = embedded is null ? new CloudClients() : JsonSerializer.Deserialize<CloudClients>(embedded, options) ?? new();
+        if (!File.Exists(path)) return defaults;
+        using var local = File.OpenRead(path);
+        var fields = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(local);
+        if (fields is null) return defaults;
+        var settings = new Dictionary<string, JsonElement>(fields, StringComparer.OrdinalIgnoreCase);
+        string Read(string key, string fallback) => settings.TryGetValue(key, out var value) ? value.GetString() ?? "" : fallback;
+        string id = Read("googleDesktopClientId", defaults.GoogleDesktopClientId);
+        string secret = Read("googleDesktopClientSecret", id == defaults.GoogleDesktopClientId ? defaults.GoogleDesktopClientSecret : "");
+        return new(id, secret, Read("yandexClientId", defaults.YandexClientId));
     }
 
     internal string ClientId(string provider) =>
@@ -24,25 +32,68 @@ internal sealed record CloudClients(string GoogleDesktopClientId = "", string Go
 
 internal sealed record CloudSession(string Provider, string ClientId, string AccessToken, string? RefreshToken, DateTimeOffset Expires, string? FolderPath = null)
 {
-    private static string Vault => Path.Combine(CloudClients.DirectoryPath, "cloud-session.dat");
+    private const string Vault = "cloud-session.dat";
+    internal static CloudSession? Load() => CloudVault.Read<CloudSession>(Vault);
+    internal void Save() => CloudVault.Write(Vault, this);
+    internal static void Forget() => CloudVault.Delete(Vault);
+}
 
-    internal static CloudSession? Load()
+internal sealed record GoogleDesktopRegistration(string ClientId, string ClientSecret)
+{
+    private const string Vault = "google-desktop.dat";
+    internal static GoogleDesktopRegistration? Saved(string clientId) =>
+        CloudVault.Read<GoogleDesktopRegistration>(Vault) is { } saved && saved.ClientId == clientId ? saved : null;
+    internal void Save() => CloudVault.Write(Vault, this);
+    internal static void Forget() => CloudVault.Delete(Vault);
+
+    internal static GoogleDesktopRegistration Import(Stream source, string expectedId)
     {
-        if (!File.Exists(Vault)) return null;
-        byte[] data = ProtectedData.Unprotect(File.ReadAllBytes(Vault), null, DataProtectionScope.CurrentUser);
-        try { return JsonSerializer.Deserialize<CloudSession>(data); }
+        const string required = "Выбери JSON клиента Sharpwise Windows из Google Cloud. В нём должны быть client_id и полный client_secret.";
+        if (source.Length is 0 or > 65536) throw new InvalidDataException(required);
+        try
+        {
+            using var json = JsonDocument.Parse(source, new JsonDocumentOptions { MaxDepth = 8 });
+            if (json.RootElement.ValueKind != JsonValueKind.Object ||
+                !json.RootElement.TryGetProperty("installed", out var installed) || installed.ValueKind != JsonValueKind.Object ||
+                !installed.TryGetProperty("client_id", out var id) || id.ValueKind != JsonValueKind.String ||
+                !installed.TryGetProperty("client_secret", out var key) || key.ValueKind != JsonValueKind.String)
+                throw new InvalidDataException(required);
+            if (id.GetString() != expectedId)
+                throw new InvalidDataException("Этот файл относится к другому клиенту Google. Выбери JSON клиента Sharpwise Windows.");
+            return FromSecret(expectedId, key.GetString()!);
+        }
+        catch (JsonException) { throw new InvalidDataException(required); }
+    }
+
+    internal static GoogleDesktopRegistration FromSecret(string id, string input)
+    {
+        string secret = input.Trim();
+        if (secret.Length is < 8 or > 4096 || secret.Any(char.IsWhiteSpace) || secret.Contains('*') || secret.Contains('•'))
+            throw new InvalidDataException("Нужен полный Client secret из окна создания в Google Cloud.");
+        return new(id, secret);
+    }
+}
+
+internal static class CloudVault
+{
+    internal static T? Read<T>(string name) where T : class
+    {
+        string path = Path.Combine(CloudClients.DirectoryPath, name);
+        if (!File.Exists(path)) return null;
+        byte[] data = ProtectedData.Unprotect(File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser);
+        try { return JsonSerializer.Deserialize<T>(data); }
         finally { CryptographicOperations.ZeroMemory(data); }
     }
 
-    internal void Save()
+    internal static void Write<T>(string name, T value)
     {
         Directory.CreateDirectory(CloudClients.DirectoryPath);
-        byte[] data = JsonSerializer.SerializeToUtf8Bytes(this);
+        byte[] data = JsonSerializer.SerializeToUtf8Bytes(value);
         string temp = Path.Combine(CloudClients.DirectoryPath, Guid.NewGuid().ToString("N") + ".tmp");
         try
         {
             File.WriteAllBytes(temp, ProtectedData.Protect(data, null, DataProtectionScope.CurrentUser));
-            File.Move(temp, Vault, overwrite: true);
+            File.Move(temp, Path.Combine(CloudClients.DirectoryPath, name), overwrite: true);
         }
         finally
         {
@@ -51,7 +102,11 @@ internal sealed record CloudSession(string Provider, string ClientId, string Acc
         }
     }
 
-    internal static void Forget() { if (File.Exists(Vault)) File.Delete(Vault); }
+    internal static void Delete(string name)
+    {
+        string path = Path.Combine(CloudClients.DirectoryPath, name);
+        if (File.Exists(path)) File.Delete(path);
+    }
 }
 
 internal static class CloudAuthorisation
@@ -147,9 +202,17 @@ internal static class CloudAuthorisation
         using var response = await CloudFiles.Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancel);
         if (!response.IsSuccessStatusCode)
         {
-            if (response.StatusCode == HttpStatusCode.BadRequest && previousRefresh != null &&
-                (await CloudFiles.Parse(response, 65536, cancel)).TryGetProperty("error", out var error) &&
-                error.GetString() == "invalid_grant") throw new CloudReauthoriseException();
+            if (google && response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
+            {
+                var failure = await CloudFiles.Parse(response, 65536, cancel);
+                string? reason = failure.TryGetProperty("error", out var error) ? error.GetString() : null;
+                if (reason == "invalid_grant" && previousRefresh != null) throw new CloudReauthoriseException();
+                if (reason == "invalid_client")
+                {
+                    GoogleDesktopRegistration.Forget();
+                    throw new InvalidOperationException("Google отклонил ключ Sharpwise Windows. Подключи Google Диск ещё раз и укажи действующий Client secret.");
+                }
+            }
             throw new InvalidOperationException($"Сервис отклонил вход (HTTP {(int)response.StatusCode}). Проверь настройки авторизации учебника.");
         }
         var token = await CloudFiles.Parse(response, 65536, cancel);

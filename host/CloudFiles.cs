@@ -93,7 +93,7 @@ internal sealed class CloudFiles(CloudSession session, HttpClient? transport = n
     {
         string query = "trashed = false and " + (device == null
             ? $"name contains '{Prefix}'" : $"name = '{FileName(device)}'");
-        string url = GoogleFiles + "?spaces=appDataFolder&pageSize=100&fields=nextPageToken,files(id,name)&q=" + Enc(query);
+        string url = GoogleFiles + "?spaces=appDataFolder&pageSize=100&fields=nextPageToken,incompleteSearch,files(id,name)&q=" + Enc(query);
         var entries = new List<(string, string)>();
         string? page = null;
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -102,6 +102,8 @@ internal sealed class CloudFiles(CloudSession session, HttpClient? transport = n
             using var response = await Api(HttpMethod.Get, page == null ? url : url + "&pageToken=" + Enc(page), null, cancel);
             Check(response);
             var result = await Parse(response, MetadataLimit, cancel);
+            if (result.TryGetProperty("incompleteSearch", out var incomplete) && incomplete.GetBoolean())
+                throw new InvalidDataException("Google Диск вернул неполный список файлов. Попробуй ещё раз.");
             foreach (var file in result.GetProperty("files").EnumerateArray())
             {
                 string? id = DeviceId(file.GetProperty("name").GetString() ?? "");
@@ -125,7 +127,7 @@ internal sealed class CloudFiles(CloudSession session, HttpClient? transport = n
             using var link = await Api(HttpMethod.Get, YandexFiles + "/download?path=" + path, null, cancel);
             if (link.StatusCode == HttpStatusCode.NotFound) return null;
             Check(link);
-            var result = await YandexTransfer(HttpMethod.Get, await TransferUrl(link, cancel), null, cancel);
+            var result = await Transfer(HttpMethod.Get, await TransferUrl(link, cancel), null, cancel);
             using (result)
             {
                 Check(result, authorised: false);
@@ -140,13 +142,25 @@ internal sealed class CloudFiles(CloudSession session, HttpClient? transport = n
         int remaining = MaxBytes;
         foreach (var entry in files.OrderBy(e => e.File, StringComparer.Ordinal))
         {
-            using var response = await Api(HttpMethod.Get, GoogleFiles + "/" + entry.File + "?alt=media", null, cancel);
-            Check(response);
-            var snapshot = await Parse(response, remaining, cancel);
+            var snapshot = await ReadGoogleFile(entry.File, remaining, cancel);
             remaining -= Encoding.UTF8.GetByteCount(snapshot.GetRawText());
             copies.Add(snapshot);
         }
         return copies.Count == 1 ? copies[0] : copies;
+    }
+
+    private async Task<JsonElement> ReadGoogleFile(string fileId, int remaining, CancellationToken cancel)
+    {
+        var url = new Uri(GoogleFiles + "/" + fileId + "?alt=media");
+        using var response = await Api(HttpMethod.Get, url.AbsoluteUri, null, cancel);
+        if ((int)response.StatusCode is 301 or 302 or 303 or 307 or 308 && response.Headers.Location is Uri location)
+        {
+            using var download = await Transfer(HttpMethod.Get, new Uri(url, location), null, cancel);
+            Check(download, authorised: false);
+            return await Parse(download, remaining, cancel);
+        }
+        Check(response);
+        return await Parse(response, remaining, cancel);
     }
 
     internal async Task Write(string device, JsonElement snapshot, CancellationToken cancel)
@@ -159,7 +173,7 @@ internal sealed class CloudFiles(CloudSession session, HttpClient? transport = n
             string path = Enc("app:/" + FileName(device));
             using var link = await Api(HttpMethod.Get, YandexFiles + "/upload?overwrite=true&path=" + path, null, cancel);
             Check(link);
-            using var response = await YandexTransfer(HttpMethod.Put, await TransferUrl(link, cancel), content, cancel);
+            using var response = await Transfer(HttpMethod.Put, await TransferUrl(link, cancel), content, cancel);
             Check(response, authorised: false);
             return;
         }
@@ -194,14 +208,21 @@ internal sealed class CloudFiles(CloudSession session, HttpClient? transport = n
             ? url : throw new InvalidDataException("Яндекс Диск вернул некорректную ссылку.");
     }
 
-    private async Task<HttpResponseMessage> YandexTransfer(HttpMethod method, Uri url, byte[]? content, CancellationToken cancel)
+    private bool IsTransferHost(string host)
+    {
+        if (Google)
+            return host == "drive.usercontent.google.com" || host.EndsWith(".googleapis.com", StringComparison.OrdinalIgnoreCase)
+                || host.EndsWith(".googleusercontent.com", StringComparison.OrdinalIgnoreCase);
+        return new[] { "yandex.net", "yandex.ru", "yandex.com", "yandexcloud.net" }.Any(
+            suffix => host == suffix || host.EndsWith("." + suffix, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task<HttpResponseMessage> Transfer(HttpMethod method, Uri url, byte[]? content, CancellationToken cancel)
     {
         for (int i = 0; i < 5; i++)
         {
-            if (!url.IsAbsoluteUri || url.Scheme != "https" || !url.IsDefaultPort || url.UserInfo.Length != 0 ||
-                !new[] { "yandex.net", "yandex.ru", "yandex.com", "yandexcloud.net" }.Any(
-                    suffix => url.Host == suffix || url.Host.EndsWith("." + suffix, StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidDataException("Яндекс Диск вернул неизвестный адрес передачи.");
+            if (!url.IsAbsoluteUri || url.Scheme != "https" || !url.IsDefaultPort || url.UserInfo.Length != 0 || !IsTransferHost(url.Host))
+                throw new InvalidDataException("Диск вернул неизвестный адрес передачи.");
             using var request = new HttpRequestMessage(method, url) { Content = content is null ? null : JsonBody(content) };
             // These are short-lived signed URLs. Never forward the OAuth token to the file server.
             var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancel);
@@ -214,6 +235,6 @@ internal sealed class CloudFiles(CloudSession session, HttpClient? transport = n
             }
             return response;
         }
-        throw new InvalidDataException("Слишком много перенаправлений при обмене с Яндекс Диском.");
+        throw new InvalidDataException("Слишком много перенаправлений при обмене с диском.");
     }
 }
