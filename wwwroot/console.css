@@ -146,3 +146,44 @@
 .cx-exercise-completions .cx-method[aria-selected=true],.cx-exercise-completions .cx-method:hover{background:#494053}
 .cx-completions .cx-method small{overflow-wrap:anywhere}
 @media (pointer:coarse){.cx-completions .cx-method-list button.cx-method{min-height:44px}}
+
+:is(#book,:root) .cx-console .cx-filebar {gap:3px}
+:is(#book,:root) .cx-console .cx-files {margin-inline-end:auto;overflow:hidden}
+:is(#book,:root) .cx-console .cx-product .cx-fullscreen {
+  display:grid;place-items:center;flex:none;width:32px;height:32px;color:#d6d0e0;
+}
+:is(#book,:root) .cx-console .cx-fullscreen[aria-pressed=false] > :last-child,
+:is(#book,:root) .cx-console .cx-fullscreen[aria-pressed=true] > :first-child {display:none}
+@media(pointer:coarse) {
+  :is(#book,:root) .cx-console .cx-product .cx-fullscreen {width:44px;height:44px}
+  :is(#book,:root) .cx-console .cx-codeview {container-type:size}
+  :is(#book,:root) .cx-console:not(.is-fullscreen) .cx-codeview {height:min(var(--height),max(4 * var(--row),60dvh))}
+  :is(#book,:root) .cx-console .cm-editor {height:100%}
+  /* Reserve a few draggable rows after the code, even for a one-line document. */
+  :is(#book,:root) .cx-console .cm-content {
+    --scroll-space:clamp(3 * var(--row),55cqh,9 * var(--row));
+    min-height:calc(100% + 2 * var(--row));
+    padding-bottom:var(--scroll-space);
+  }
+}
+
+/* The workspace gives each console its own height, including the console in the second pane. */
+:is(#book,:root) .cx-console.is-fullscreen,
+:is(#book,:root) .cx-console.is-fullscreen :is(.cx-product,.cx-content,.cx-grid) {height:100%}
+:is(#book,:root) .cx-console.is-fullscreen :is(.cx-bar,.cx-head,.cx-help) {display:none}
+:is(#book,:root) .cx-console.is-fullscreen .cx-content {
+  padding: max(6px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right))
+           max(6px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
+  background:#20202a;
+}
+:is(#book,:root) .cx-console.is-fullscreen .cx-grid {
+  grid-template-rows:minmax(min-content,1fr);overflow:auto;overscroll-behavior:contain;border:0;border-radius:5px;
+}
+:is(#book,:root) .cx-console.is-fullscreen .cx-editor {display:flex;flex-direction:column}
+:is(#book,:root) .cx-console.is-fullscreen .cx-codeview {contain:size;flex:1 0 3.5rem;min-height:3.5rem}
+:is(#book,:root) .cx-console.is-fullscreen .cm-editor {height:100%}
+:is(#book,:root) .cx-console.is-fullscreen .cx-filebar {position:sticky;top:0;z-index:2;flex:none}
+:is(#book,:root) .cx-console.is-fullscreen .cx-result {contain:size;flex:1;min-height:2.5rem;max-height:none}
+@container cxapp (max-width:650px) {
+  :is(#book,:root) .cx-console.is-fullscreen .cx-grid {grid-template-rows:minmax(min-content,2fr) minmax(min-content,1fr)}
+}

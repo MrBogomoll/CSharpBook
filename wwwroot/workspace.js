@@ -14,7 +14,7 @@ let contentsPanel;
 let secondaryFrame, readyFrame, pendingExample, draftManager;
 let split=false, activeConsole='', lastReading='', readerKey='';
 const consoleTabs=new Map();
-const stackMedia=matchMedia('(max-width: 680px) and (orientation: portrait)');
+const compactWorkspace=matchMedia('(max-width: 680px)');
 function readingChapter() {
   return lastReading.startsWith('chapter/') ? chapters[Number(lastReading.slice(8))] : null;
 }
@@ -80,21 +80,38 @@ function createWorkspace() {
     return;
   }
   split=store.get('split-open',false);
-  const dimensionKey=()=>stackMedia.matches?'dock-height':'dock-width';
+  // Some mobile browsers resize only the visible viewport for the keyboard.
+  // Fit the parent first so its secondary iframe receives the real available height.
+  if(window.visualViewport){
+    const viewport=window.visualViewport;
+    const fitKeyboard=()=>{
+      const reduced=viewport.scale===1 && viewport.height<innerHeight-1;
+      root.style.setProperty('--book-visible-height',reduced?viewport.height+'px':'');
+    };
+    viewport.addEventListener('resize',fitKeyboard);
+    fitKeyboard();
+  }
+  const dimensionKey=()=>workspace.classList.contains('is-stacked')?'dock-height':'dock-width';
   function resize(value,save) {
     const ratio=Math.max(25,Math.min(75,Math.round(Number(value)||50)));
     workspace.style.setProperty('--reader-size',ratio+'%');
     divider.setAttribute('aria-valuenow',String(ratio));
-    divider.setAttribute('aria-orientation',stackMedia.matches?'horizontal':'vertical');
+    divider.setAttribute('aria-orientation',workspace.classList.contains('is-stacked')?'horizontal':'vertical');
     if(save)store.set(dimensionKey(),ratio);
   }
-  const restore=()=>resize(store.get(dimensionKey(),50),false);
-  restore();stackMedia.addEventListener('change',restore);
+  const restore=()=>{
+    // A keyboard may make a portrait phone's viewport wider than it is tall.
+    const portrait=matchMedia('(orientation:portrait)').matches ||
+      (matchMedia('(pointer:coarse)').matches && window.screen.orientation?.type.startsWith('portrait'));
+    workspace.classList.toggle('is-stacked',compactWorkspace.matches && portrait);
+    resize(store.get(dimensionKey(),50),false);
+  };
+  restore();window.addEventListener('resize',restore);
   divider.addEventListener('pointerdown',event=>{workspace.classList.add('resizing');divider.setPointerCapture(event.pointerId);event.preventDefault();});
   divider.addEventListener('pointermove',event=>{
     if(!divider.hasPointerCapture(event.pointerId))return;
     const r=workspace.getBoundingClientRect();
-    resize(100*(stackMedia.matches?(event.clientY-r.top)/r.height:(event.clientX-r.left)/r.width),false);
+    resize(100*(workspace.classList.contains('is-stacked')?(event.clientY-r.top)/r.height:(event.clientX-r.left)/r.width),false);
   });
   divider.addEventListener('lostpointercapture',()=>{workspace.classList.remove('resizing');resize(divider.getAttribute('aria-valuenow'),true);});
   divider.addEventListener('keydown',event=>{
@@ -246,6 +263,7 @@ function selectConsole(key) {
   const tab=consoleTabs.get(key);
   if(!tab)return;
   const previous=consoleTabs.get(activeConsole);
+  if(previous!==tab)previous?.cleanup?.exitFullscreen();
   if(previous)previous.scroll=consolePages.scrollTop;
   activeConsole=key;
   for(const item of consoleTabs.values())item.host.hidden=item!==tab;
@@ -425,6 +443,7 @@ function toggleDock() {
 }
 function paintWorkspace() {
   const full=state.page==='console', both=!secondaryPane&&split&&state.page!=='exit';
+  if(!full)consoleTabs.get(activeConsole)?.cleanup?.exitFullscreen();
   workspace.classList.toggle('is-split',both);
   root.classList.toggle('has-dock',both);
   primary.hidden=full;consolePanel.hidden=!full;divider.hidden=!both;dock.hidden=!both;

@@ -63,6 +63,7 @@ export function mountConsole(container, options = {}) {
   function cleanup() { dispose?.(); dispose = null; }
   cleanup.updateFiles = draft => dispose?.updateFiles(draft);
   cleanup.setTitle = name => dispose?.setTitle(name);
+  cleanup.exitFullscreen = () => dispose?.exitFullscreen();
   cleanup.openExample = example => {
     cleanup();
     dispose = mountConsolePage(container,{onBack:options.onBack, onChange:options.onChange, showHeader:options.showHeader, ...example});
@@ -94,7 +95,9 @@ function mountConsolePage(container, {
     '<div class="cx-content"><div class="cx-head"><div>' + '<div class="cx-crumb"' + (trail(title) ? '' : ' hidden') + '>' + html(trail(title)) + '</div>' +
     '<h1>Консоль</h1></div>' + (showHeader ? '' : back) + '</div>' +
     '<div class="cx-grid"><section class="cx-editor" aria-label="Редактор C#"><div class="cx-filebar"><div class="cx-files"></div>' +
-    button('copy','Копировать','copy','cx-copy') + '</div><div class="cx-codeview"></div>' +
+    button('copy','Копировать','copy','cx-copy') +
+    '<button type="button" class="cx-fullscreen" data-action="toggle-fullscreen" aria-label="Развернуть консоль" title="Развернуть консоль" aria-pressed="false">' +
+    icon('maximize-2') + icon('minimize-2') + '</button></div><div class="cx-codeview"></div>' +
     '<div class="cx-completions" aria-label="Подсказки ввода" hidden></div><div class="cx-editor-foot"><div class="cx-controls">' +
     button('run','Запустить','play','cx-run','aria-label="Запустить" title="Запустить"') +
     button('stop','Остановить','square','cx-stop','aria-label="Остановить" title="Остановить" hidden') +
@@ -117,6 +120,27 @@ function mountConsolePage(container, {
   const fileMenu = $('.cx-files'), help = $('.cx-help'), result = $('.cx-result');
   const inputForm = $('.cx-stdin'), lineInput = inputForm.elements.line;
   const host = $('.cx-codeview');
+  const fullscreenButton = $('.cx-fullscreen');
+  const scrollHost = container.parentElement;
+  let previousScroll = 0;
+  function setFullscreen(value) {
+    if (value === page.classList.contains('is-fullscreen')) return;
+    if (value) previousScroll = scrollHost.scrollTop;
+    page.classList.toggle('is-fullscreen',value);
+    fullscreenButton.setAttribute('aria-pressed',String(value));
+    fullscreenButton.title = value ? 'Свернуть консоль' : 'Развернуть консоль';
+    fullscreenButton.setAttribute('aria-label',fullscreenButton.title);
+    if (!value) scrollHost.scrollTop = previousScroll;
+  }
+  fullscreenButton.addEventListener('pointerdown',event => {
+    if (host.contains(document.activeElement) || document.activeElement === lineInput) event.preventDefault();
+  },{signal});
+  page.addEventListener('keydown',event => {
+    if (event.key === 'Escape' && !event.isComposing && page.classList.contains('is-fullscreen') && $('.cx-completions').hidden) {
+      event.preventDefault();
+      setFullscreen(false);
+    }
+  },{capture:true,signal});
   const editor = createCodeEditor(host, $('.cx-completions'), current, codeFiles.get(current), (name,text) => {
     codeFiles.set(name,text);
     expanded = false;
@@ -124,6 +148,16 @@ function mountConsolePage(container, {
     onChange?.(codeFiles.get(mainFile), extraFiles());
     scheduleRefresh();
   }, run, () => ({version:Number(version), files:Object.fromEntries(codeFiles)}));
+  let availableHeight = scrollHost.clientHeight;
+  const paneResize = new ResizeObserver(([entry]) => {
+    const next = entry.contentRect.height;
+    if (next > 0 && next < availableHeight && matchMedia('(pointer:coarse)').matches) {
+      if (document.activeElement === lineInput) lineInput.scrollIntoView({block:'nearest'});
+      else editor.revealCaret();
+    }
+    availableHeight = next;
+  });
+  paneResize.observe(scrollHost);
   const fresh = () => snapshot && [...codeFiles].every(([name,text]) => snapshot.get(name) === text);
   function drawFiles() {
     if (codeFiles.size === 1) {
@@ -317,6 +351,7 @@ function mountConsolePage(container, {
     if (action !== 'complete') editor.close();
     switch (action) {
       case 'back': onBack?.(); break;
+      case 'toggle-fullscreen': setFullscreen(!page.classList.contains('is-fullscreen')); break;
       case 'run': run(); break;
       case 'stop': stop(); break;
       case 'reset-console': {
@@ -370,6 +405,8 @@ function mountConsolePage(container, {
   drawFiles(); refresh(); icons();
   function cleanup() {
     if (signal.aborted) return;
+    setFullscreen(false);
+    paneResize.disconnect();
     controller.abort(); serial++;
     cancelAnimationFrame(frame);
     const handle = active; active = null; busy = false;
@@ -377,6 +414,7 @@ function mountConsolePage(container, {
     editor.destroy();
     page.remove();
   }
+  cleanup.exitFullscreen = () => setFullscreen(false);
   function replaceProject(next, nextFile) {
     codeFiles.clear();
     for (const [name, text] of next) {

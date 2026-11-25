@@ -82,6 +82,9 @@ export function createCodeEditor(host, panel, file, source, onChange, onRun, pro
 
   return {
     close, select, replace,
+    revealCaret() {
+      if (view.hasFocus) view.dispatch({effects:EditorView.scrollIntoView(view.state.selection.main.head, {y:'nearest'})});
+    },
     updateFile(fileName, text) {
       if (fileName !== name) {
         if (documents.get(fileName)?.doc.toString() !== text) documents.delete(fileName);
