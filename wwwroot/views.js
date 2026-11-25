@@ -8,11 +8,14 @@ function nav(where) {
 function contents(asList=false) {
   return chapters.map((chapter,i)=>{
     const open = state.expanded.includes(i);
-    const number = '<span class="cs-ordinal">'+String(i+1).padStart(2,'0')+'</span>';
-    const heading = button('expand:'+i,number+esc(chapter.title)+icon(open?'chevron-down':'chevron-right'),'cs-chapter','aria-expanded="'+open+'"');
+    const scope='theme/'+i, progress=taskProgress(scope);
+    const heading = button('expand:'+i,themeOrdinal(i,'cs-ordinal',progress)+'<span class="topic-label">'+esc(chapter.title)+'</span>'+
+      taskCount(scope,progress)+icon(open?'chevron-down':'chevron-right'),'cs-chapter','aria-expanded="'+open+'"');
     const inner = open ? '<div class="cs-topics">'+chapterIntroLink(i,false)+chapter.topics.map(topic=>{
       const current=lastReading.split('/')[0]==='lesson' && lastReading.split('/')[1]===topic.id;
-      return button('lesson:'+topic.id,icon(state.read.includes(topic.id)?'circle-check':(current?'circle-dot':'circle'))+esc(topic.title),asList?'cs-list-link':'cs-topic'+(current?' selected':''),current?'aria-current="page"':'');
+      const count=taskProgress(topic.id);
+      return button('lesson:'+topic.id,lessonMark(topic,count)+'<span class="topic-label">'+esc(topic.title)+'</span>'+taskCount(topic.id,count),
+        asList?'cs-list-link':'cs-topic'+(current?' selected':''),current?'aria-current="page"':'');
     }).join('')+'</div>' : '';
     return '<div>'+heading+inner+'</div>';
   }).join('');
@@ -87,16 +90,19 @@ function homeView(lesson){
   const resume='<aside class="cs-progress-column" aria-label="Продолжение обучения"><div class="cs-resume"><span class="cs-kicker">'+icon('book-open')+(intro?'Введение в тему':resumeTask?'Текущее упражнение':'Текущая глава')+'</span><h2>'+esc(intro?.title||resumeTask?.title||lesson.title)+'</h2><p>'+esc(intro?'Сначала разберём основные понятия темы.':resumeTask?lesson.title:summaryOf(lesson))+'</p>'+(intro||resumeTask?'':'<code class="cs-resume-code">'+syntax(lesson.examples[state.example].code.split('\n')[0])+'</code>')+button('back',(state.started?'Продолжить':'Начать обучение')+icon('arrow-right'),'cs-continue')+'</div><div class="cs-resume-progress"><div><span>Прочитано глав</span><strong>'+state.read.length+' из '+lessons.length+'</strong></div><div class="cs-progress-track"><i style="width:'+100*state.read.length/lessons.length+'%"></i></div></div></aside>';
   const rows=chapters.map((chapter,i)=>{
     const open=state.expanded.includes(i), total=chapter.topics.length;
-    const head=button('expand:'+i,'<span class="cs-ch-num">'+String(i+1).padStart(2,'0')+'</span><span>'+esc(chapter.title)+'</span><span class="cs-ch-count">'+total+' '+words(total,'глава','главы','глав')+'</span>'+icon(open?'chevron-up':'chevron-down'),'cs-chapter-row','aria-expanded="'+open+'"');
+    const scope='theme/'+i, progress=taskProgress(scope);
+    const head=button('expand:'+i,themeOrdinal(i,'cs-ch-num',progress)+'<span>'+esc(chapter.title)+'</span><span class="cs-ch-count">'+
+      total+' '+words(total,'глава','главы','глав')+' '+taskCount(scope,progress)+'</span>'+icon(open?'chevron-up':'chevron-down'),'cs-chapter-row','aria-expanded="'+open+'"');
     const topics=open?chapterIntroLink(i,true)+chapter.topics.map(topic=>{
       const current=Boolean(state.started)&&!readingChapter()&&topic.id===state.lesson, read=state.read.includes(topic.id);
       const saved=state.saved.includes(topic.id);
       const marks='<span class="bm-marks">'+(current?'<span class="bm-here">'+icon('map-pin')+'Вы здесь</span>':'')+(read?'<span class="bm-read">'+icon('circle-check')+'Прочитано</span>':'')+(saved?'<span class="bm-book" aria-label="В закладках">'+icon('bookmark')+'</span>':'')+'</span>';
-      return button('lesson:'+topic.id,'<span class="bm-topic-text"><span class="cs-topic-name">'+esc(topic.title)+'</span><span class="cs-topic-desc">'+esc(summaryOf(topic))+'</span><small class="chapter-task-count">'+topic.exercises.length+' '+words(topic.exercises.length,'упражнение','упражнения','упражнений')+'</small></span>'+marks+icon('chevron-right'),'cs-course-topic bm-topic'+(current?' here':''),'aria-label="'+esc([topic.title,current?'Вы здесь':'',read?'Прочитано':'Ещё не прочитано',saved?'В закладках':''].filter(Boolean).join('. '))+'"');
+      const progress=taskProgress(topic.id);
+      return button('lesson:'+topic.id,'<span class="bm-topic-text"><span class="cs-topic-name">'+lessonMark(topic,progress)+esc(topic.title)+'</span><span class="cs-topic-desc">'+esc(summaryOf(topic))+'</span><small class="chapter-task-count">Решено задач '+taskCount(topic.id,progress)+'</small></span>'+marks+icon('chevron-right'),'cs-course-topic bm-topic'+(current?' here':''));
     }).join(''):'';
     return '<div class="cs-chapter-card">'+head+topics+'</div>';
   }).join('');
-  return '<div class="cs-home-intro"><h1><span>C#</span> с нуля</h1><p>Начни с первой программы, затем научись хранить данные и выбирать, что программа сделает дальше.</p></div><div class="cs-home-grid">'+resume+'<section class="cs-toc"><div class="cs-heading-row"><h2>Содержание</h2><small>'+chapters.length+' '+words(chapters.length,'тема','темы','тем')+' · '+lessons.length+' '+words(lessons.length,'глава','главы','глав')+'</small></div><details class="topic-index"><summary>Указатель тем</summary><div class="topic-index-body"></div></details>'+rows+'</section></div>';
+  return '<div class="cs-home-intro"><h1><span>C#</span> с нуля</h1><p>Начни с первой программы, затем научись хранить данные и выбирать, что программа сделает дальше.</p></div><div class="cs-home-grid">'+resume+'<section class="cs-toc"><div class="cs-heading-row"><h2>Содержание</h2><small>'+chapters.length+' '+words(chapters.length,'тема','темы','тем')+' · '+lessons.length+' '+words(lessons.length,'глава','главы','глав')+'</small></div>'+solvedList('course')+'<details class="topic-index"><summary>Указатель тем</summary><div class="topic-index-body"></div></details>'+rows+'</section></div>';
 }
 function syntaxGuide(lesson, recap = false) {
   if (!lesson.syntaxGuide) return '';
@@ -165,7 +171,7 @@ function lessonView(lesson) {
   const controls='<div class="bm-lesson-controls">'+button('save',icon(saved?'bookmark-check':'bookmark-plus')+(saved?'В закладках':'В закладки'),'cs-tool'+(saved?' on':''),'aria-pressed="'+saved+'"')+'</div>';
   const readButton=button('read',icon(read?'circle-check':'circle')+(read?'Прочитано':'Отметить прочитанным'),'cs-tool'+(read?' on':''),'aria-pressed="'+read+'"');
   const links='<div class="bm-links"><span role="status" aria-live="polite">'+esc(feedback)+'</span>'+button('go:saved','Открыть закладки'+icon('arrow-right'),'cs-flat cs-next')+button('go:home','К оглавлению'+icon('chevron-right'),'cs-flat')+'</div>';
-  return banner('Тема '+(i+1)+' · '+chapters[i].title+' · Глава '+(chapters[i].topics.indexOf(lesson)+1),lesson.title,lesson.intro,lesson.id==='variables')+controls+links+
+  return banner('Тема '+(i+1)+' · '+chapters[i].title+' · Глава '+(chapters[i].topics.indexOf(lesson)+1),lesson.title,lesson.intro,lesson.id==='variables')+controls+links+solvedList(lesson.id)+
     (lesson.id==='types'?typeGuide():'')+
     '<div class="cs-body">'+syntaxGuide(lesson)+theoryView(lesson.theory)+'<h2>'+esc(lesson.section)+'</h2><p class="cs-description">'+formatText(lesson.description)+'</p>'+
     tabs(lesson)+exampleInput(lesson.examples[state.example])+editor(lesson)+(lesson.note?'<p class="lesson-note">'+formatText(lesson.note)+'</p>':'')+teach(lesson)+desktopLabsView(lesson)+projectLink(lesson)+
@@ -222,8 +228,8 @@ function theoryView(blocks) {
 }
 function chapterView(index) {
   const chapter=chapters[index], first=chapter.topics[0];
-  return banner('Тема '+(index+1)+' · Введение',chapter.title,'')+theoryView(chapter.theory)+
+  return banner('Тема '+(index+1)+' · Введение',chapter.title,'')+solvedList('theme/'+index)+theoryView(chapter.theory)+
     '<section class="chapter-sequence"><h2>Главы темы</h2>'+chapter.topics.map(topic=>
-      button('lesson:'+topic.id,icon(state.read.includes(topic.id)?'circle-check':'circle')+esc(topic.title),'cs-list-link')).join('')+
+      button('lesson:'+topic.id,lessonMark(topic)+'<span class="topic-label">'+esc(topic.title)+'</span>'+taskCount(topic.id),'cs-list-link')).join('')+
     '</section><div class="cs-actions">'+button('go:home','К оглавлению','cs-tool')+button('lesson:'+first.id,'Перейти к первой главе'+icon('arrow-right'),'cs-next')+'</div>';
 }

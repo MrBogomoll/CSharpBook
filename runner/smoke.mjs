@@ -51,11 +51,27 @@ try {
     await evaluate('document.querySelector(".cx-send").click()');
     await until('document.querySelector(".cx-stop")?.hidden === true && document.querySelector(".cx-out").innerText.includes("Привет, Кира")');
     console.log('Edited C# 15 program through CodeMirror, Run button, real ReadLine and Send button',await evaluate('document.querySelector(".cx-out").innerText'));
+    await evaluate('go("lesson","read-line","challenge-2")');
+    await until('!!document.querySelector("[data-action=run-custom]")');
+    const checkCode=async expression=>{
+      await evaluate('(()=>{const area=document.querySelector(".cs-draft");area.value='+expression+';area.dispatchEvent(new Event("input",{bubbles:true}));document.querySelector("[data-action=run-draft]").click();})()');
+      await until('!document.querySelector("[data-action=run-draft]").disabled');
+    };
+    await checkCode('"Console.Write(" + JSON.stringify(activeTask().output) + ");"');
+    assert.equal(await evaluate('exerciseDone(findLesson("read-line"), activeTask())'),false);
+    assert.ok(await evaluate('!!document.querySelector(".case-details")'));
+    await checkCode('activeTask().solution');
+    assert.equal(await evaluate('exerciseDone(findLesson("read-line"), activeTask())'),true);
+    assert.equal(await evaluate('taskProgress("read-line").solved'),1);
+    await evaluate('document.querySelector(".cs-content .solved-tasks").open=true');
+    await until('!!document.querySelector(\'.cs-content a[href="#lesson/read-line/challenge-2"]\')');
+    console.log('Only a solution that passed alternate inputs appeared in the chapter list.');
   }
   const tests=[
     {name:'hello10',version:10,source:'Console.WriteLine("Привет!"); Console.WriteLine(Environment.Version.Major);',out:'Привет!\n10\n'},
     {name:'hello11',version:11,source:'string word="маяк"; Console.WriteLine(word=="Маяк"); Console.WriteLine(word=="маяк"); Console.WriteLine(Environment.Version.Major);',out:'False\nTrue\n11\n'},
     {name:'interactive',version:11,source:'Console.Write("Имя? "); var name=Console.ReadLine(); Console.WriteLine("Привет, "+name); var s = Console.ReadLine(); Console.WriteLine(s.Length);',input:['Лена',''],out:'Имя? Привет, Лена\n0\n'},
+    {name:'prepared input and EOF',version:10,source:'while (Console.ReadLine() is string line) Console.WriteLine("[" + line + "]");',stdin:['один','','три'],out:'[один]\n[]\n[три]\n'},
     {name:'multiple files',version:10,source:'Console.WriteLine(Maths.Add(8, 6));',files:{'Maths.cs':'static class Maths { public static int Add(int a,int b)=>a+b; }'},out:'14\n'},
     {name:'runtime exception',version:11,source:'throw new InvalidOperationException("test-failure");',error:'InvalidOperationException'},
     {name:'diagnostic',version:10,source:'Console.WriteLine(1)',error:'CS1002',line:1,col:21},

@@ -112,3 +112,31 @@
 #book .desktop-lab {max-width:70ch;margin:16px 0}
 #book .desktop-lab li {margin:.4em 0}
 #book .cs-reading .cs-source {display:block;width:fit-content;margin:.4em 0}
+
+#book .theme-number {display:inline-grid;place-items:center;flex:none;box-sizing:border-box;width:2.2em;height:2.2em;border:2px solid transparent;border-radius:50%}
+#book .theme-number.tasks-complete {border-color:var(--cs-violet);color:var(--cs-violet);background:var(--cs-wash)}
+#book .task-count {white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:600;font-size:max(12px,.85em);color:var(--cs-violet)}
+#book .cs-chapter .task-count,#book .cs-topic .task-count,#book .cs-list-link .task-count {flex:none;margin-inline-start:auto}
+#book .cs-chapter > svg {flex:none;margin:0}
+#book .cs-ch-count {display:grid;text-align:end;gap:2px}
+#book .cs-ch-count .task-count {font-size:12px}
+#book .lesson-mark {display:inline-flex;align-items:center;flex:none;vertical-align:middle}
+#book .lesson-mark.tasks-complete {color:var(--cs-violet)}
+#book .cs-list-link .lesson-mark,#book .cs-list-link .topic-label {margin:0}
+#book .cs-list-link .topic-label {font:inherit;color:inherit}
+#book .cs-topic-name .lesson-mark {margin-inline-end:6px}
+#book .solved-tasks {margin:0 0 14px;border-block-end:1px solid var(--cs-line);padding:0 0 6px;min-width:0}
+#book .solved-tasks summary {cursor:pointer;color:var(--cs-violet);font-weight:600;padding:10px 0}
+#book .solved-tasks summary .task-count {margin-inline-start:6px}
+#book .solved-items {padding-inline-start:14px}
+#book .solved-items:empty {padding:0}
+#book .solved-items ul {list-style:none;padding:0;margin:2px 0 12px}
+#book .solved-items li {display:flex;align-items:baseline;flex-wrap:wrap;gap:0 8px}
+#book .solved-items a {padding:5px 0;color:var(--cs-violet);text-decoration:underline;text-underline-offset:.15em}
+#book .solved-items small {color:var(--cs-weak)}
+#book .cs-product .study-step.challenge-step {border-bottom:2px solid var(--cs-violet)}
+#book .challenge-step svg {width:13px;height:13px;flex:none}
+#book .case-details {margin:8px 0 0}
+#book .case-details dt {font-weight:600}
+#book .case-details dd {margin:2px 0 8px}
+#book .case-details pre {margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
