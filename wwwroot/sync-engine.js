@@ -251,8 +251,8 @@ export class SyncEngine {
     return run;
   }
 
-  sync(provider) {
-    return this.enqueue(() => this.exchange(provider));
+  sync(provider, {restoreOnly = false} = {}) {
+    return this.enqueue(() => this.exchange(provider, restoreOnly));
   }
 
   exportSnapshot() {
@@ -286,7 +286,7 @@ export class SyncEngine {
     }
   }
 
-  async exchange(provider) {
+  async exchange(provider, restoreOnly) {
     this.capture();
     const downloads = await provider.readReplicas();
     const remote = merge(...downloads.map(item => checkedSnapshot(item).records));
@@ -297,11 +297,12 @@ export class SyncEngine {
     // A user pairing individual documents must be able to pick our file even
     // when this device is new or the peer already has every progress record.
     const missingOwnFile = provider.ensureOwnReplica && !downloads.some(item => item.deviceId === this.deviceId);
-    const uploaded = !sameRecords(remote, records) || Boolean(missingOwnFile);
+    const needsUpload = !sameRecords(remote, records) || Boolean(missingOwnFile);
     const snapshot = checkedSnapshot(this.snapshot(records));
-    const changedKeys = this.apply(records, uploaded);
+    const changedKeys = this.apply(records, needsUpload);
     const writtenRecords = this.state.records;
     await this.flushChanges(changedKeys);
+    const uploaded = needsUpload && !restoreOnly;
     if (uploaded) {
       try {
         await provider.writeReplica(this.state.device, snapshot);
@@ -315,6 +316,6 @@ export class SyncEngine {
         await this.flushChanges(changedKeys);
       }
     }
-    return {changedKeys, uploaded};
+    return {changedKeys, uploaded, hasRemoteRecords:Object.keys(remote).length > 0};
   }
 }

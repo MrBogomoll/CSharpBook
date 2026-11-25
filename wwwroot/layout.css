@@ -68,5 +68,3 @@ a { color:var(--cs-violet); }
 #book .sync-conflicts summary { cursor:pointer; }
 #book .sync-conflicts strong { display:block; margin-top:12px; }
 #book .sync-conflicts pre { max-height:14rem; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
-#book #book-cloud-sync .sync-more, #book #book-cloud-sync .sync-transfer { margin:12px 0; }
-#book .sync-transfer summary { cursor:pointer; }

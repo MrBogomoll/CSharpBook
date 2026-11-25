@@ -50,6 +50,40 @@ test('first pairing merges existing data and sends only portable keys', async ()
   assert.equal((await pc.engine.sync(drive)).uploaded, false);
 });
 
+test('a fresh install automatically restores cloud progress before writing anything', async () => {
+  const drive = cloud();
+  const records = [['read/intro',true], ['saved/loops',true], ['solved/loops/1',true], ['draft/loops','from phone']];
+  await device('Old phone', records).engine.sync(drive);
+  const before = structuredClone(drive.files);
+  const fresh = device('New phone');
+  const result = await fresh.engine.sync(drive);
+  assert.equal(result.hasRemoteRecords, true);
+  assert.deepEqual(new Set(result.changedKeys), new Set(records.map(([key]) => key)));
+  for (const [key, value] of records) assert.deepEqual(fresh.store.get(key), value);
+  assert.deepEqual(drive.files, before);
+});
+
+test('manual restore reads only, keeps local edits and distinguishes an empty disk from an up-to-date copy', async () => {
+  const drive = cloud();
+  const pc = device('PC', [['draft/local','unsent']]);
+  const restore = () => pc.engine.sync(drive, {restoreOnly:true});
+  assert.deepEqual(await restore(), {changedKeys:[], uploaded:false, hasRemoteRecords:false});
+  assert.equal(drive.files.size, 0);
+  await device('Phone', [['saved/loops',true], ['draft/shared','phone']]).engine.sync(drive);
+  const before = structuredClone(drive.files);
+  const result = await restore();
+  assert.equal(result.uploaded, false);
+  assert.equal(result.hasRemoteRecords, true);
+  assert.equal(pc.store.get('saved/loops'), true);
+  assert.equal(pc.store.get('draft/shared'), 'phone');
+  assert.equal(pc.store.get('draft/local'), 'unsent');
+  assert.deepEqual(await restore(), {changedKeys:[], uploaded:false, hasRemoteRecords:true});
+  assert.deepEqual(drive.files, before);
+  assert.equal(pc.engine.hasLocalChanges(), true);
+  await pc.engine.sync(drive);
+  assert.equal(drive.files.get(pc.engine.deviceId).records['draft/local'][0].value, 'unsent');
+});
+
 test('observed deletion, old replicas and offline restart do not resurrect data', async () => {
   const drive = cloud();
   const note = {id:'one', route:'lesson/intro', anchor:'p-1', body:'text', quote:'q', updated:1};

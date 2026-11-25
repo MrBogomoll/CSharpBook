@@ -2,7 +2,6 @@ import {SyncEngine, isSyncKey} from './sync-engine.js';
 import {available, getStatus, connect, disconnect, getProvider, openExchangeFile, saveExchangeFile} from './sync-bridge.js';
 
 const providers = {google: 'Google Диск', yandex: 'Яндекс Диск'};
-const folderNames = {google: 'Папка Google Диска', yandex: 'Папка Яндекс Диска'};
 
 function showValue(value) {
   if (value === null) return 'Удалено';
@@ -21,7 +20,6 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
   let settings = null;
   let provider = null;
   let awaitingPeer = false;
-  let selected = null;
   let choosingService = false;
   let configured = {};
   let busy = false;
@@ -35,77 +33,54 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
   function controls() {
     if (!settings?.isConnected) return;
     const actions = settings.querySelector('.sync-actions');
-    const signature = JSON.stringify([provider, configured, selected, statusReady, awaitingPeer, choosingService]);
+    const signature = JSON.stringify([provider, configured, statusReady, awaitingPeer, choosingService]);
     if (signature !== connectionControls) {
       connectionControls = signature;
       actions.replaceChildren();
-      const add = (text, command, group = actions) => {
+      const add = (text, command) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'cs-tool';
         button.textContent = text;
         button.dataset.sync = command;
-        group.append(button);
+        actions.append(button);
       };
-      const usingDocuments = label === 'Android' && configured.documents === true;
-      const direct = Object.keys(providers).some(id => configured[id]);
       let intro;
       if (!native) {
-        intro = 'Чтобы продолжить на другом устройстве, передай файл прогресса.';
+        intro = 'Прогресс хранится в этом браузере. Его можно сохранить в файл и восстановить из копии.';
+        add('Скачать копию', 'export');
+        add('Восстановить из файла', 'import');
       } else if (!statusReady) {
         intro = '';
         add('Проверить подключение', 'status');
       } else if (provider && !choosingService) {
         if (provider === 'folder') intro = 'Подключена папка обмена. Облачное приложение отвечает за передачу файлов между устройствами.';
         else if (provider === 'documents' && awaitingPeer) {
-          intro = 'Прогресс сохраняется в выбранный файл телефона. На ПК выбери эту папку в настройках Sharpwise и запусти синхронизацию. Затем подключи здесь появившийся файл ПК для двустороннего обмена.';
+          intro = 'Прогресс сохраняется в файл телефона. Если на ПК уже есть файл Sharpwise, подключи его для обмена в обе стороны.';
           add('Подключить файл ПК', 'add-peer');
         } else if (provider === 'documents') intro = 'Подключены файлы ПК и телефона. Учебник обменивается изменениями через эти файлы автоматически.';
         else intro = 'Подключён ' + providers[provider] + '.';
         add('Синхронизировать сейчас', 'sync');
+        if (providers[provider]) add('Восстановить прогресс', 'restore');
         add('Сменить диск', 'choose-service');
         const target = {folder:'папку', documents:'файлы'}[provider] || providers[provider];
         add('Отключить ' + target, 'disconnect');
-      } else if (selected) {
-        const platformHint = label !== 'Android'
-          ? 'Выбери папку, которую синхронизирует установленное на ПК приложение диска.'
-          : usingDocuments ? 'Если диск предлагает только отдельные файлы, выбери «Связать два файла».'
-            : 'Если диск не предлагает выбрать папку, воспользуйся передачей файла ниже.';
-        if (selected === 'google') {
-          intro = usingDocuments
-            ? 'В системном окне открой боковое меню и выбери Google Диск нужного аккаунта. Выдели на нём папку для Sharpwise. Можно начать с телефона или подключить файл, который уже создал ПК.'
-            : 'В Google Диске для компьютеров создай папку Sharpwise. Выбери её здесь, затем открой ту же папку на телефоне. Учебник будет обмениваться прогрессом через файлы в ней.';
-          if (usingDocuments) {
-            add('Начать с телефона', 'phone-first');
-            add('Связать с файлом ПК', 'documents');
-          } else add('Выбрать папку Google Диска', 'folder');
-        } else {
-          intro = 'Выбери на ПК и Android одну и ту же папку на диске. Учебник объединит прогресс обоих устройств. ' + platformHint;
-          add('Выбрать папку', 'folder');
-          if (usingDocuments) add('Связать два файла', 'documents');
-        }
-        add('Назад', 'back');
       } else {
-        intro = direct
-          ? 'Подключи один и тот же аккаунт на ПК и телефоне. Учебник будет автоматически синхронизировать прогресс, закладки, заметки и черновики.'
-          : 'Выбери диск для обмена через общую папку. Учебник объединит прогресс, закладки, заметки и черновики.';
-        for (const [id, name] of Object.entries(providers)) {
-          if (configured[id]) add('Подключить ' + name, id);
-          else add(id === 'google' ? 'Google Диск' : folderNames[id], 'folder-' + id);
+        const disks = Object.entries(providers).filter(([id]) => configured[id]);
+        if (disks.length) {
+          intro = 'Подключи тот же диск и аккаунт, что на другом устройстве. Sharpwise автоматически восстановит сохранённый там прогресс и объединит его с местными изменениями.';
+          for (const [id, name] of disks) add('Подключить ' + name, id);
+        } else {
+          intro = 'Для обмена между устройствами выбери общую папку диска.';
+          if (configured.folder) add('Выбрать папку', 'folder');
+          if (configured.documents) {
+            add('Начать с файла телефона', 'phone-first');
+            add('Подключить файл ПК', 'documents');
+          }
         }
         if (choosingService) add('Отмена', 'cancel-service');
       }
       settings.querySelector('.sync-description').textContent = intro;
-      const more = settings.querySelector('.sync-more');
-      const showFolderOptions = native && statusReady && (!provider || choosingService) && !selected && direct;
-      more.hidden = !showFolderOptions;
-      more.firstElementChild.replaceChildren();
-      if (showFolderOptions) {
-        for (const [id, name] of Object.entries(folderNames)) if (configured[id]) add(name, 'folder-' + id, more.firstElementChild);
-      }
-      settings.querySelector('.sync-transfer summary').textContent = showFolderOptions
-        ? 'Другие способы синхронизации' : 'Передать файл прогресса вручную';
-      settings.querySelector('.sync-documents-help').hidden = !(usingDocuments && selected && selected !== 'google' && !provider);
     }
     for (const button of settings.querySelectorAll('[data-sync]')) button.disabled = busy;
     const status = settings.querySelector('.sync-status');
@@ -163,14 +138,7 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
     settings.hidden = false;
     connectionControls = conflictsVersion = '';
     settings.innerHTML = '<h2>Синхронизация</h2><p class="sync-description"></p><div class="sync-actions"></div>' +
-      '<p class="sync-documents-help" hidden>Для связи через два файла сначала подключи папку диска в учебнике на ПК и нажми «Синхронизировать сейчас». На телефоне открой в ней файл ПК csharpbook-v1-….json, затем сохрани файл телефона в той же папке под предложенным именем. Дальше обмен пойдёт автоматически.</p>' +
-      '<details class="sync-transfer"><summary>Передать файл прогресса вручную</summary>' +
-      '<div class="sync-more" hidden><div class="sync-actions"></div></div>' +
-      '<p>Сохрани файл на одном устройстве и открой его на другом. Можно передать файл через Google Диск или Яндекс Диск. При импорте учебник объединит прогресс.</p>' +
-      '<div class="sync-actions"><button type="button" class="cs-tool" data-sync="export">Сохранить файл прогресса</button>' +
-      '<button type="button" class="cs-tool" data-sync="import">Открыть файл прогресса</button></div></details>' +
       '<p class="sync-status" role="status"></p><div class="sync-conflicts"></div>';
-    settings.querySelector('.sync-transfer').open = !native || Boolean(selected);
     settings.onclick = event => {
       const button = event.target.closest('[data-sync]');
       if (button && !busy && !button.disabled) handle(button.dataset.sync);
@@ -188,7 +156,7 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
     if (provider) timer = setTimeout(synchronize, delay);
   }
 
-  async function synchronize() {
+  async function synchronize(restoreOnly = false) {
     clearTimeout(timer);
     if (busy || !provider) return;
     if (provider !== 'folder' && provider !== 'documents' && !navigator.onLine) {
@@ -197,19 +165,26 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
       return;
     }
     busy = true;
-    message = 'Синхронизируем…';
+    message = restoreOnly ? 'Ищем сохранённый прогресс на диске…' : 'Синхронизируем…';
     controls();
     try {
       engine ||= new SyncEngine(store, label);
-      const {changedKeys} = await engine.sync(getProvider(provider));
+      const {changedKeys, uploaded, hasRemoteRecords} = await engine.sync(getProvider(provider), {restoreOnly});
       refresh(changedKeys);
       conflicts = engine.conflicts();
       const time = new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
-      const completed = {folder:'Обмен с папкой завершён в ', documents:'Обмен со связанными файлами завершён в '};
-      message = (provider === 'documents' && awaitingPeer ? 'Файл телефона сохранён в ' :
-        completed[provider] || 'Синхронизировано в ') + time + '.';
+      if (restoreOnly) {
+        if (!hasRemoteRecords) message = 'На этом диске пока нет сохранённого прогресса.';
+        else message = changedKeys.length ? 'Прогресс с диска восстановлен.' : 'На устройстве уже есть весь прогресс с этого диска.';
+      } else if (provider === 'folder' || provider === 'documents') {
+        const completed = provider === 'folder' ? 'Обмен с папкой завершён в ' :
+          awaitingPeer ? 'Файл телефона сохранён в ' : 'Обмен со связанными файлами завершён в ';
+        message = completed + time + '.';
+      } else if (changedKeys.length) message = 'Прогресс с диска загружен в ' + time + '.';
+      else if (!hasRemoteRecords && !uploaded) message = 'На этом диске пока нет сохранённого прогресса.';
+      else message = 'Синхронизировано в ' + time + '.';
       if (engine.hasLocalChanges()) {
-        message = 'Новые изменения сохранены на устройстве.';
+        if (!restoreOnly) message = 'Новые изменения сохранены на устройстве.';
         schedule(1800);
       }
     } catch (error) {
@@ -222,17 +197,9 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
   }
 
   async function handle(command) {
-    if (command === 'sync') return synchronize();
+    if (command === 'sync' || command === 'restore') return synchronize(command === 'restore');
     if (command === 'choose-service' || command === 'cancel-service') {
       choosingService = command === 'choose-service';
-      selected = null;
-      message = '';
-      controls();
-      return;
-    }
-    if (command === 'back' || command === 'folder-google' || command === 'folder-yandex') {
-      selected = command === 'back' ? null : command.slice('folder-'.length);
-      settings.querySelector('.sync-transfer').open = false;
       message = '';
       controls();
       return;
@@ -276,9 +243,8 @@ export async function startCloudSync({store, label, refresh, describeKey}) {
       awaitingPeer = status.awaitingPeer === true;
       configured = status.configured;
       statusReady = true;
-      selected = null;
       choosingService = false;
-      message = command === 'disconnect' ? 'Синхронизация отключена. Прогресс остался на устройстве.' : '';
+      message = '';
       schedule(0);
     } catch (error) {
       if (error.changedKeys?.length) refresh(error.changedKeys);
