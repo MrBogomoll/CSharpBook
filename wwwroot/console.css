@@ -28,8 +28,8 @@
 :is(#book,:root) .cx-console .cx-product .cx-copy{color:#d6d0e0;display:flex;align-items:center;gap:5px;font-size:11px;padding:6px}
 :is(#book,:root) .cx-console .cx-copy svg{width:13px;height:13px}
 :is(#book,:root) .cx-console .cx-underline{text-decoration:underline wavy #ff95a8;text-underline-offset:3px}
-:is(#book,:root) .cx-console .cx-editor-foot{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:9px 11px;border-top:1px solid #393744}
-:is(#book,:root) .cx-console .cx-editor-note{color:#c2bdcd;font-size:11px}
+:is(#book,:root) .cx-console .cx-editor-foot{container:console-tools / inline-size;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:9px 11px;border-top:1px solid #393744}
+:is(#book,:root) .cx-console .cx-editor-note{color:#c2bdcd;font-size:11px;white-space:nowrap}
 :is(#book,:root) .cx-console .cx-product .cx-run{display:inline-flex;gap:6px;align-items:center;padding:7px 14px;border-radius:6px;background:#c9aff4;color:#2c2042;font-size:13px;font-weight:670}
 :is(#book,:root) .cx-console .cx-run svg{width:14px;height:14px;fill:currentColor}
 :is(#book,:root) .cx-console .cx-key{color:#adbcff}:is(#book,:root) .cx-console .cx-num{color:#ebc989}:is(#book,:root) .cx-console .cx-class{color:#93dcd5}:is(#book,:root) .cx-console .cx-fn{color:#e4d79d}:is(#book,:root) .cx-console .cx-str{color:#f2bc9c}:is(#book,:root) .cx-console .cx-comment{color:#a1b29a}
@@ -37,9 +37,8 @@
 :is(#book,:root) .cx-console .cx-term-status{display:flex;align-items:center;gap:5px;margin-left:auto;font-size:11px;color:#ccc7d5;white-space:nowrap}
 :is(#book,:root) .cx-console .cx-term-status svg{width:13px;height:13px}
 :is(#book,:root) .cx-console .cx-product .cx-termbar{height:auto;min-height:43px;flex-wrap:wrap;gap:3px 8px;padding-block:3px}
-:is(#book,:root) .cx-console .cx-product .cx-clear{display:inline-flex;align-items:center;gap:5px;margin-left:auto;min-height:32px;padding:4px 7px;border:1px solid #686478;border-radius:5px;color:#e2dcec;font-size:12px}
+:is(#book,:root) .cx-console .cx-product .cx-clear{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:4px 7px;border:1px solid #686478;border-radius:5px;color:#e2dcec;font-size:12px}
 :is(#book,:root) .cx-console .cx-clear svg{width:15px;height:15px}
-@media(pointer:coarse){:is(#book,:root) .cx-console .cx-product .cx-clear{min-height:44px}}
 :is(#book,:root) .cx-console .cx-term-status.ok{color:#a4dfbf}:is(#book,:root) .cx-console .cx-term-status.fail{color:#ffa9b8}
 :is(#book,:root) .cx-console .cx-result{padding:16px 15px;min-height:110px;overflow-wrap:anywhere;font-size:13px}
 :is(#book,:root) .cx-console .cx-product .cx-idle{color:#b5afbf;font-size:13px;max-width:34ch;line-height:1.55}
@@ -83,10 +82,22 @@
 :is(#book,:root) .cx-console .cx-grid{align-items:stretch}
 :is(#book,:root) .cx-console .cx-product button:disabled{opacity:.55;cursor:default}
 :is(#book,:root) .cx-console .cx-product button:focus-visible{outline:2px solid var(--violet);outline-offset:-2px}
-:is(#book,:root) .cx-console .cx-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+:is(#book,:root) .cx-console .cx-controls{display:flex;align-items:center;gap:8px;white-space:nowrap}
 :is(#book,:root) .cx-console .cx-product .cx-stop,:is(#book,:root) .cx-console .cx-product .cx-send{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 11px;font-size:13px;color:#f2eaf8;border:1px solid #6d617a}
 :is(#book,:root) .cx-console .cx-product .cx-stop svg{width:13px;height:13px}
 :is(#book,:root) .cx-console .cx-editor-foot{background:#20202a}
+:is(#book,:root) .cx-console .cx-controls :is(.cx-run,.cx-stop){inline-size:9em;min-height:34px;justify-content:center}
+@media(pointer:coarse){
+  :is(#book,:root) .cx-console .cx-controls :is(.cx-run,.cx-stop,.cx-clear){min-width:44px;min-height:44px}
+}
+@container console-tools (max-width:340px){
+  :is(#book,:root) .cx-console .cx-controls .cx-clear{width:44px}
+  :is(#book,:root) .cx-console .cx-clear span{display:none}
+}
+@container console-tools (max-width:235px){
+  :is(#book,:root) .cx-console .cx-controls :is(.cx-run,.cx-stop){inline-size:44px;padding-inline:0}
+  :is(#book,:root) .cx-console .cx-controls :is(.cx-run,.cx-stop) span{display:none}
+}
 :is(#book,:root) .cx-console .cx-files{max-width:76%;min-width:0}
 :is(#book,:root) .cx-console .cx-file-select{color:#f0ebfa;background:#302b3a;border:1px solid #635675;border-radius:5px;padding:3px;max-width:100%;font:12px Consolas,monospace}
 :is(#book,:root) .cx-console .cx-result{max-height:370px;overflow:auto}

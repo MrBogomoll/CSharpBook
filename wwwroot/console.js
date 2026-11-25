@@ -8,7 +8,7 @@ const html = value => String(value ?? '').replace(/[&<>"']/g, c =>
 const icon = name => '<i data-lucide="' + name + '" aria-hidden="true"></i>';
 const button = (action, title, glyph, style = 'cx-soft', attrs = '') =>
   '<button type="button" class="' + style + '" data-action="' + action + '" ' + attrs + '>' +
-  (glyph ? icon(glyph) : '') + html(title) + '</button>';
+  (glyph ? icon(glyph) : '') + '<span>' + html(title) + '</span></button>';
 const statuses = {
   idle: ['Готово к запуску','circle'], loading: ['Подготовка','loader-circle'],
   running: ['Выполняется','play'], input: ['Ожидание ввода','keyboard'],
@@ -95,8 +95,9 @@ function mountConsolePage(container, {
     '<div class="cx-grid"><section class="cx-editor" aria-label="Редактор C#"><div class="cx-filebar"><div class="cx-files"></div>' +
     button('copy','Копировать','copy','cx-copy') + '</div><div class="cx-codeview"></div>' +
     '<div class="cx-completions" aria-label="Подсказки ввода" hidden></div><div class="cx-editor-foot"><div class="cx-controls">' +
-    button('run','Запустить','play','cx-run') + button('stop','Остановить','square','cx-stop','hidden') +
-    button('reset-console','Сбросить консоль','rotate-ccw','cx-clear','title="Вернуть исходный код и очистить результат"') +
+    button('run','Запустить','play','cx-run','aria-label="Запустить" title="Запустить"') +
+    button('stop','Остановить','square','cx-stop','aria-label="Остановить" title="Остановить" hidden') +
+    button('reset-console','Сбросить консоль','rotate-ccw','cx-clear','aria-label="Сбросить консоль" title="Сбросить консоль и вернуть исходный код"') +
     '</div><span class="cx-editor-note">.NET ' + html(version) + '</span></div></section>' +
     '<section class="cx-terminal" aria-label="Результат запуска"><div class="cx-termbar"><span class="cx-termname">' +
     icon('terminal') + 'Результат</span><span class="cx-term-status" role="status"></span>' +
@@ -197,8 +198,12 @@ function mountConsolePage(container, {
     };
     note.textContent = messages[status] || '';
     note.hidden = !note.textContent || (!!output && !['stale','stopped'].includes(status));
-    $('.cx-run').disabled = busy;
-    $('.cx-stop').hidden = !busy;
+    const runButton = $('.cx-run'), stopButton = $('.cx-stop');
+    const focused = document.activeElement;
+    runButton.hidden = busy;
+    stopButton.hidden = !busy;
+    if (busy && focused === runButton) stopButton.focus({preventScroll:true});
+    if (!busy && focused === stopButton) runButton.focus({preventScroll:true});
     inputForm.hidden = phase !== 'input' || !busy;
     if (!inputForm.hidden) lineInput.disabled = false;
     const visibleErrors = stale ? [] : errors;
