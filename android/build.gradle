@@ -1,0 +1,96 @@
+plugins {
+    id 'com.android.application' version '9.0.1'
+}
+
+def webRoot = file(providers.gradleProperty('webRoot').getOrElse('../wwwroot'))
+def sharedCloudConfig = '../cloud-sync.defaults.json'
+def localConfig = file('cloud-sync.json')
+def cloudConfig = file(providers.gradleProperty('cloudConfig').getOrElse(
+        localConfig.isFile() ? 'cloud-sync.json' : sharedCloudConfig))
+if (providers.gradleProperty('outputDir').isPresent()) {
+    layout.buildDirectory.set(file(providers.gradleProperty('outputDir').get()))
+}
+def stagedAssets = layout.buildDirectory.dir('generated/bookAssets')
+def stageAssets = tasks.register('stageBookAssets', Sync) {
+    into stagedAssets
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(webRoot) { into 'www' }
+    from('LICENSE-NanoHTTPD.txt') { into 'licenses'; rename { 'NanoHTTPD.txt' } }
+    from(new File(webRoot.parentFile, 'host/licenses')) { into 'licenses' }
+    from(new File(webRoot.parentFile, 'licenses')) { into 'licenses' }
+    from(cloudConfig) { rename { 'cloud-sync.json' } }
+    doFirst {
+        if (!new File(webRoot, 'runtime/net11.bin').isFile()) {
+            throw new GradleException("Missing .NET 11 runtime in ${webRoot}")
+        }
+        if (!cloudConfig.isFile()) {
+            throw new GradleException("Missing cloud configuration: ${cloudConfig}")
+        }
+    }
+}
+
+def previewConfig = providers.gradleProperty('previewCloudConfig').map { file(it) }.getOrElse(cloudConfig)
+def previewAssets = layout.buildDirectory.dir('generated/previewCloudAssets')
+def stagePreviewConfig = tasks.register('stagePreviewConfig', Sync) {
+    into previewAssets
+    inputs.file(previewConfig)
+    from(previewConfig) { rename { 'cloud-sync.json' } }
+}
+
+android {
+    namespace 'ru.csharpbook.reader'
+    compileSdk 36
+    buildToolsVersion '36.0.0'
+    defaultConfig {
+        // Keep the identity of the published 0.3.5 preview so Android updates it in place.
+        applicationId 'ru.csharpbook.reader.preview'
+        minSdk 28
+        targetSdk 35
+        manifestPlaceholders = [bookLabel: 'Sharpwise']
+        buildConfigField 'String', 'STABLE_CERT_SHA256', '"' + file('stable-cert.sha256').text.trim() + '"'
+    }
+    buildFeatures { buildConfig = true }
+    buildTypes {
+        preview {
+            initWith release
+            matchingFallbacks = ['release']
+            manifestPlaceholders = [bookLabel: 'Sharpwise · Бета']
+        }
+    }
+    sourceSets.main {
+        manifest.srcFile 'AndroidManifest.xml'
+        java.srcDirs = ['app']
+        res.srcDirs = ['res']
+        assets.srcDirs = [stagedAssets]
+    }
+    sourceSets.preview.assets.srcDirs = [previewAssets]
+    // BookServer serves byte ranges through AssetManager.openFd.
+    androidResources.noCompress.add('')
+}
+def planned = new groovy.xml.XmlSlurper(false, false).parse(file('AndroidManifest.xml'))
+def stableCode = planned.'@android:versionCode'.text().toInteger()
+def betaNumber = providers.gradleProperty('officialBetaNumber')
+def betaCode = providers.gradleProperty('officialBetaCode')
+if (betaNumber.present != betaCode.present) {
+    throw new GradleException('Set officialBetaNumber and officialBetaCode together.')
+}
+def number = betaNumber.getOrElse('1')
+def code = betaCode.getOrElse((stableCode - 1).toString())
+if (!(number ==~ /[1-9][0-9]{0,8}/) || !(code ==~ /[1-9][0-9]{0,9}/) || code.toLong() >= stableCode) {
+    throw new GradleException('Use a positive beta versionCode below the planned stable versionCode.')
+}
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+    if (variant.buildType == 'preview' || (variant.buildType == 'release' && betaNumber.present)) {
+        variant.outputs.each { output ->
+            output.versionName.set(planned.'@android:versionName'.text() + '_b.' + number)
+            output.versionCode.set(code.toInteger())
+        }
+    }
+}
+tasks.named('preBuild').configure { dependsOn stageAssets }
+tasks.matching { it.name == 'prePreviewBuild' }.configureEach { dependsOn stagePreviewConfig }
+
+dependencies {
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+    implementation 'com.google.android.gms:play-services-auth:21.5.1'
+}

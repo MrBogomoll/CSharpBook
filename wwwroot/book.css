@@ -9,7 +9,7 @@
 #book .cs-product button:hover{filter:brightness(.96)}
 #book .cs-top{display:flex;align-items:center;gap:16px;min-height:57px;border-bottom:1px solid var(--cs-line);padding:0 22px;background:var(--cs-surface)}
 #book .cs-product .cs-brand{display:inline-flex;align-items:center;gap:9px;font-weight:700;letter-spacing:-.04em;font-size:17px;white-space:nowrap}
-#book .cs-logo{display:grid;place-items:center;width:32px;height:32px;border-radius:9px 9px 9px 3px;background:#6546a8;color:white;font:700 16px/1 Consolas,monospace;letter-spacing:-.08em}
+#book .cs-logo{display:block;flex:none;width:32px;height:32px;object-fit:contain;border-radius:8px}
 #book .cs-global{display:flex;gap:4px;align-items:center;margin-left:auto}
 #book .cs-product .cs-nav-item,#book .cs-product .cs-tool{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:7px 10px;font-size:13px;font-weight:550;color:var(--cs-weak)}
 #book .cs-product .cs-nav-item.active{background:var(--cs-wash);color:var(--cs-violet)}
@@ -87,7 +87,6 @@
   #book .cs-top {min-height:50px;padding:0 13px;justify-content:space-between}
   #book .cs-global {display:none}
   #book .cs-content {padding:13px}
-  #book .cs-side.open {padding:14px 16px}
   #book .cs-hero {padding:18px}
   #book .cs-hero::before {inset:0 0 0 80%;opacity:.18}
   #book .cs-product h1 {font-size:34px}
@@ -108,8 +107,7 @@
 }
 @container csapp (max-width:680px) {
   #book .cs-grid {display:block}
-  #book .cs-side,#book .cs-side.open .cs-progress,#book .cs-diagram {display:none}
-  #book .cs-side.open {display:flex;border-right:0;border-bottom:1px solid var(--cs-line)}
+  #book .cs-side,#book .cs-diagram {display:none}
   #book .cs-hero {grid-template-columns:minmax(0,1fr)}
 }
 @media(pointer:coarse){#book .cs-product button{min-height:44px}}

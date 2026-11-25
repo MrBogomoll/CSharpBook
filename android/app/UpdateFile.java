@@ -9,7 +9,7 @@ import android.provider.OpenableColumns;
 import java.io.*;
 
 public final class UpdateFile extends ContentProvider {
-    static final Uri URI = Uri.parse("content://ru.csharpbook.reader.updates/CSharpBook.apk");
+    static final Uri URI = Uri.parse("content://" + BuildConfig.APPLICATION_ID + ".updates/CSharpBook.apk");
     static final String MIME = "application/vnd.android.package-archive";
     static File file(Context context) { return new File(context.getCacheDir(), "CSharpBook-update.apk"); }
 

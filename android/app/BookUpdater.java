@@ -14,8 +14,8 @@ import java.util.*;
 
 final class BookUpdater {
     static final int PERMISSION = 723, INSTALL = 724;
-    static final String REPO = "https://github.com/MrBogomoll/CSharpBook";
-    private static final String LATEST = "https://api.github.com/repos/MrBogomoll/CSharpBook/releases/latest";
+    static final String REPO = "https://github.com/MrBogomoll/Sharpwise";
+    private static final String LATEST = "https://api.github.com/repos/MrBogomoll/Sharpwise/releases/latest";
     private final BookActivity activity;
     private final SharedPreferences prefs;
     private boolean busy;
@@ -25,12 +25,13 @@ final class BookUpdater {
         this.activity = activity;
         prefs = activity.getSharedPreferences("updater", Context.MODE_PRIVATE);
         try {
-            String version = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0).versionName;
-            if (version.equals(prefs.getString("version", ""))) {
+            PackageInfo installed = installed();
+            if (installed.versionName.equals(prefs.getString("version", ""))) {
+                String version = installed.versionName;
                 message = "Версия " + version + " установлена.";
                 prefs.edit().clear().apply(); UpdateFile.file(activity).delete();
             }
-        } catch (PackageManager.NameNotFoundException ignored) { }
+        } catch (Exception ignored) { }
     }
     void status() { activity.showUpdate(message, busy); }
     private void state(String text, boolean working) {
@@ -41,16 +42,19 @@ final class BookUpdater {
         activity.runOnUiThread(() -> { if (alive()) state(text, working); });
     }
 
-    static String newer(String tag, String current) throws IOException {
+    private static String stableVersion(String tag) throws IOException {
         if (!tag.matches("v?(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})"))
             throw new IOException("Неизвестный формат версии выпуска.");
-        String version = tag.startsWith("v") ? tag.substring(1) : tag;
+        return tag.startsWith("v") ? tag.substring(1) : tag;
+    }
+    static String newer(String tag, String current) throws IOException {
+        String version = stableVersion(tag);
         String[] available = version.split("\\."), installed = current.split("_", 2)[0].split("\\.");
         for (int i = 0; i < 3; i++) {
             int comparison = Integer.compare(Integer.parseInt(available[i]), Integer.parseInt(installed[i]));
             if (comparison != 0) return comparison > 0 ? version : null;
         }
-        return null;
+        return current.matches("[0-9]+\\.[0-9]+\\.[0-9]+_b\\.[1-9][0-9]*") ? version : null;
     }
 
     private static HttpURLConnection connection(String address, boolean asset) throws IOException {
@@ -118,15 +122,26 @@ final class BookUpdater {
                 throw new IOException("Не удалось сохранить сведения об обновлении.");
         } finally { temp.delete(); }
     }
+    private boolean officialSigner(PackageInfo info) throws Exception {
+        if (info.signingInfo == null || info.signingInfo.hasMultipleSigners()) return false;
+        for (Signature signature : info.signingInfo.getSigningCertificateHistory())
+            if (BuildConfig.STABLE_CERT_SHA256.equals(hex(MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())))) return true;
+        return false;
+    }
+    private PackageInfo installed() throws PackageManager.NameNotFoundException {
+        return activity.getPackageManager().getPackageInfo(activity.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+    }
     private void validate(File apk, String version) throws Exception {
         PackageManager pm = activity.getPackageManager();
-        PackageInfo running = pm.getPackageInfo(activity.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+        PackageInfo installed = installed();
         PackageInfo next = pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.GET_SIGNING_CERTIFICATES);
-        if (next == null || !running.packageName.equals(next.packageName) || !version.equals(next.versionName) ||
-            next.getLongVersionCode() <= running.getLongVersionCode() || next.signingInfo == null || running.signingInfo == null ||
-            !new HashSet<>(Arrays.asList(running.signingInfo.getApkContentsSigners())).equals(
-              new HashSet<>(Arrays.asList(next.signingInfo.getApkContentsSigners()))))
+        if (next == null || !installed.packageName.equals(next.packageName) || !version.equals(next.versionName) ||
+            next.getLongVersionCode() <= installed.getLongVersionCode())
             throw new IOException("Имя приложения, подпись или номер версии APK не совпали с выпуском.");
+        if (!officialSigner(installed) || !officialSigner(next) ||
+                !new HashSet<>(Arrays.asList(installed.signingInfo.getApkContentsSigners())).equals(
+                 new HashSet<>(Arrays.asList(next.signingInfo.getApkContentsSigners()))))
+            throw new IOException("Подпись APK не совпадает с установленной версией.");
     }
     void start() {
         if (busy) return;
@@ -137,27 +152,34 @@ final class BookUpdater {
                 if (rel.getBoolean("draft") || rel.getBoolean("prerelease")) throw new IOException("GitHub вернул предварительный выпуск.");
                 String tag = rel.getString("tag_name");
                 if (!(REPO + "/releases/tag/" + tag).equals(rel.getString("html_url"))) throw new IOException("Не удалось подтвердить источник выпуска.");
-                PackageInfo installed = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
-                String version = newer(tag, installed.versionName);
-                if (version == null) { post("У тебя последняя версия.", false); return; }
-                String name = "CSharpBook-" + version + "-Android.apk";
+                PackageInfo installed = installed();
+                String version = stableVersion(tag);
+                if (newer(tag, installed.versionName) == null) {
+                    post(installed.versionName.contains("_b.")
+                        ? "Стабильный выпуск для этой беты ещё не опубликован." : "У тебя последняя версия.", false);
+                    return;
+                }
                 JSONArray assets = rel.getJSONArray("assets");
                 JSONObject asset = null;
                 for (int i = 0; i < assets.length(); i++) {
                     JSONObject item = assets.getJSONObject(i);
-                    if (name.equals(item.getString("name"))) {
+                    String candidate = item.getString("name");
+                    if (candidate.equals("Sharpwise-" + version + "-Android.apk") || candidate.equals("CSharpBook-" + version + "-Android.apk")) {
                         if (asset != null) throw new IOException("В выпуске несколько файлов APK.");
                         asset = item;
                     }
                 }
                 if (asset == null) throw new IOException("В выпуске пока нет APK.");
-                String url = REPO + "/releases/download/" + tag + "/" + name;
+                String url = REPO + "/releases/download/" + tag + "/" + asset.getString("name");
                 String digest = asset.getString("digest");
                 long size = asset.getLong("size");
                 if (!url.equals(asset.getString("browser_download_url")) || !digest.matches("sha256:[0-9a-f]{64}") || size < 1 || size > 512L*1024*1024)
                     throw new IOException("Не удалось подтвердить файл выпуска.");
                 download(url, version, size, digest.substring(7));
-                activity.runOnUiThread(() -> { if (alive()) requestInstall(); });
+                activity.runOnUiThread(() -> {
+                    if (!alive()) return;
+                    requestInstall();
+                });
             } catch (Exception error) { post("Обновление не завершено. " + reason(error), false); }
         }, "book-update").start();
     }
@@ -186,7 +208,8 @@ final class BookUpdater {
     }
     void result(int request, int result) {
         if (request == INSTALL) {
-            state(result == Activity.RESULT_OK ? "Обновление установлено." : "Установка отменена или отклонена Android. Можно попробовать ещё раз.", false);
+            String version = prefs.getString("version", "");
+            state(result == Activity.RESULT_OK ? "Стабильная версия " + version + " установлена." : "Установка отменена или отклонена Android. Можно попробовать ещё раз.", false);
             activity.revokeUriPermission(UpdateFile.URI, Intent.FLAG_GRANT_READ_URI_PERMISSION);
             prefs.edit().clear().apply(); UpdateFile.file(activity).delete();
         } else if (request == PERMISSION) {

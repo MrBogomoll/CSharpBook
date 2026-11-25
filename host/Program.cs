@@ -57,7 +57,7 @@ internal static class Program
         catch (Exception ex)
         {
             if (serveOnly) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
-            else MessageBox.Show(ex.GetBaseException().Message, "Учебник C#", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            else MessageBox.Show(ex.GetBaseException().Message, "Sharpwise", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -69,6 +69,7 @@ internal static class Program
     {
         private readonly WebView2 view = new() {Dock=DockStyle.Fill};
         private readonly string root;
+        private readonly CloudSync cloud;
         private WebApplication? phoneServer;
         private bool changing;
         private readonly CancellationTokenSource closing = new();
@@ -76,7 +77,8 @@ internal static class Program
         public BookWindow(string root, bool startLan)
         {
             this.root=root;
-            Text="Учебник C#"; Width=1150; Height=850; MinimumSize=new Size(360,450);
+            cloud = new CloudSync(this);
+            Text="Sharpwise"; Width=1150; Height=850; MinimumSize=new Size(360,450);
             StartPosition=FormStartPosition.CenterScreen; Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             Controls.Add(view);
             Shown+=async (_,_) => {
@@ -86,6 +88,7 @@ internal static class Program
                     var env=await CoreWebView2Environment.CreateAsync(null,profile);
                     await view.EnsureCoreWebView2Async(env);
                     var core=view.CoreWebView2;
+                    if (ReleaseUpdate.IsPreview) core.Settings.UserAgent += " SharpwisePreview/1";
                     core.Settings.AreDefaultContextMenusEnabled=true;
                     core.NavigationStarting+=(_,e)=>{if(!Local(e.Uri) && e.Uri!="about:blank"){e.Cancel=true; OpenExternal(e.Uri);}};
                     core.NewWindowRequested+=(_,e)=>{e.Handled=true; OpenExternal(e.Uri);};
@@ -102,7 +105,17 @@ internal static class Program
                     };
                     core.WebMessageReceived+=async (_,e)=>{
                         if (!Local(e.Source)) return;
-                        var command=e.TryGetWebMessageAsString();
+                        string command;
+                        try { command=e.TryGetWebMessageAsString(); }
+                        catch (ArgumentException) { return; }
+                        if (command.StartsWith('{'))
+                        {
+                            if (new Uri(e.Source).AbsolutePath is not ("/" or "/index.html")) return;
+                            var reply = await cloud.Handle(command, closing.Token);
+                            if (reply != null && !closing.IsCancellationRequested && Local(core.Source))
+                                core.PostWebMessageAsJson(reply);
+                            return;
+                        }
                         if(command=="close"){Close();return;}
                         if(command=="update-start"){await UpdateBook();return;}
                         if(command=="lan-on"||command=="lan-off") await SetPhoneAccess(command=="lan-on");
@@ -132,6 +145,14 @@ internal static class Program
                 timeout.CancelAfter(TimeSpan.FromMinutes(10));
                 var release = await ReleaseUpdate.Latest(timeout.Token);
                 if (release == null) { Status("У тебя последняя версия.", false); return; }
+                if (ReleaseUpdate.IsPreview && MessageBox.Show(this,
+                    $"Тестовая сборка {ReleaseUpdate.DisplayVersion} будет заменена стабильной версией {release.Version}. " +
+                    "У более раннего выпуска может быть меньше функций. Перейти на стабильную версию?",
+                    "Переход на стабильную версию", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+                {
+                    Status("Переход отменён.", false); return;
+                }
                 stage = ReleaseUpdate.CreateStage(AppContext.BaseDirectory);
                 string zip = Path.Combine(stage, "release.zip");
                 Status($"Скачиваем версию {release.Version}…");

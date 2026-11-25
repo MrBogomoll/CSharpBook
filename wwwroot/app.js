@@ -3,8 +3,9 @@ const root = document.getElementById('app');
 const store = new PaneStore();
 let chapters = [], lessons = [];
 const state = {page:'home',lesson:'',step:'',taskFile:'Program.cs',example:0,read:[],saved:[],expanded:[0],started:false};
-let feedback='', menuOpen=false, hideExampleOutput=false, selectedFile='Program.cs';
+let feedback='', hideExampleOutput=false, selectedFile='Program.cs';
 let detachHints=null;
+let cloudSync=null;
 let scrollTimer=null;
 const pagePositions=new Map();
 if ('scrollRestoration' in history) history.scrollRestoration='manual';
@@ -44,10 +45,17 @@ function syncMarks() {
 }
 function settingsView() {
   const theme=store.get('theme','auto');
-  return '<main class="settings-view"><h1>Настройки</h1><p>Учебник C# · Версия 0.2.0</p><fieldset><legend>Оформление учебника</legend>'+
+  const preview=navigator.userAgent.includes('SharpwisePreview/');
+  const betaVersion=/\bSharpwiseBeta\/(\d+\.\d+\.\d+_b\.\d+)\b/.exec(navigator.userAgent)?.[1];
+  let channel='';
+  if (betaVersion) channel='<p>Официальная бета. Следующая стабильная версия установится поверх неё и сохранит твой прогресс.</p>';
+  else if (preview) channel='<p>Тестовая сборка. Перед обновлением ты увидишь номер стабильного выпуска.</p>';
+  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.3.6')+'</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
-    '</fieldset><h2>Мой прогресс</h2><p>Прочитано '+state.read.length+' из '+lessons.length+' глав. Закладки, место остановки и черновики сохраняются в этом браузере.</p>'+
-    '<section id="book-updates"><h2>Обновление приложения</h2><button type="button" class="cs-tool" id="book-update-button">Обновить версию</button><p id="book-update-status" role="status" aria-live="polite"></p></section>'+
+    '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
+    '<section id="book-cloud-sync" hidden></section>'+
+    '<section id="book-updates"><h2>Обновление приложения</h2>'+channel+'<button type="button" class="cs-tool" id="book-update-button">'+
+    (preview || betaVersion?'Перейти на стабильную версию':'Обновить версию')+'</button><p id="book-update-status" role="status" aria-live="polite"></p></section>'+
     (store.warning?'<p role="alert">'+esc(store.warning)+'</p>':'')+
     button('exit',icon('log-out')+'Выйти из приложения','cs-tool')+'</main>';
 }
@@ -69,6 +77,7 @@ function go(page,id,step) {
 }
 function route() {
   if(!primary)return;
+  closeContents();
   keepReadingPosition();noteMenu.hidden=true;selectionTool.hidden=true;
   const [page,arg,stepId]=location.hash.slice(1).split('/');
   const destination=page==='lesson'&&findLesson(arg)?'lesson':page==='chapter'&&/^\d+$/.test(arg)&&chapters[Number(arg)]?'chapter':
@@ -81,7 +90,7 @@ function route() {
   if(changed){
     detachHints?.();detachHints=null;
     state.taskFile='Program.cs';
-    state.example=0;selectedFile='Program.cs';hideExampleOutput=false;feedback='';menuOpen=false;
+    state.example=0;selectedFile='Program.cs';hideExampleOutput=false;feedback='';
   }
   if(destination==='lesson'){
     state.lesson=arg;state.step=step?.id||'';store.set('last',arg);
@@ -93,19 +102,21 @@ function route() {
     const index=destination==='lesson'?chapterIndex(arg):Number(arg);
     if(!state.expanded.includes(index))state.expanded.push(index);
   }
+  if(!isReading)restoreReadingRoute();
   state.page=destination;
   if(destination==='exit'){split=false;for(const run of exerciseRuns.values())stopExercise(run);exerciseRuns.clear();for(const tab of consoleTabs.values())tab.cleanup?.();consoleTabs.clear();consolePages.replaceChildren();activeConsole='';}
-  render(changed||!!pendingNote);
+  render(changed||!!pendingNote||(isReading&&!['lesson','chapter'].includes(previous)));
   if(isReading&&(changed||previous!==destination||pendingNote)){
     primary.scrollTop=store.get('position/'+positionKey(),0);revealNote();
   }else if(!isReading&&destination!=='console'&&destination!==previous)primary.scrollTop=pagePositions.get(destination)||0;
 }
 function sidebar(){
-  return '<aside aria-label="Содержание" class="cs-side'+(menuOpen?' open':'')+'"><div class="cs-side-title">Содержание</div><div class="cs-sections">'+contents()+'</div><div class="cs-progress">Прочитано <strong>'+state.read.length+' из '+lessons.length+' глав</strong><div class="cs-progress-track"><i style="width:'+100*state.read.length/lessons.length+'%"></i></div></div></aside>';
+  return '<aside aria-label="Содержание" class="cs-side"><div class="cs-side-title">Содержание</div><div class="cs-sections">'+contents()+'</div><div class="cs-progress">Прочитано <strong>'+state.read.length+' из '+lessons.length+' глав</strong><div class="cs-progress-track"><i style="width:'+100*state.read.length/lessons.length+'%"></i></div></div></aside>';
 }
-function refreshMarks() {
+function refreshMarks(updatePage=true) {
   const side=reader.querySelector('.cs-side');
   if(side)side.outerHTML=sidebar();
+  refreshContentsPanel();
   if(readerKey.startsWith('lesson/')){
     const id=readerKey.split('/')[1];
     for(const [action,list,off,on,offIcon,onIcon] of [
@@ -126,7 +137,7 @@ function refreshMarks() {
       if(topic)link.innerHTML=icon(state.read.includes(topic.id)?'circle-check':'circle')+esc(topic.title);
     }
   }
-  render();
+  if(updatePage)render();
 }
 function paintReader() {
   const lesson=findLesson(state.lesson);
@@ -136,7 +147,7 @@ function paintReader() {
   detachHints?.();detachHints=null;
   readerKey=key;
   reader.innerHTML='<div class="cs-grid">'+sidebar()+'<main class="cs-content">'+(key.startsWith('chapter/')?chapterView(Number(key.slice(8))):stepStrip(lesson,state.step)+(task?exerciseView(lesson,task):lessonView(lesson)))+'</main></div>';
-  reader.querySelectorAll('details').forEach((d,i)=>{if(open[i])d.open=true;});
+  reader.querySelectorAll('details').forEach((d,i)=>{if(i<open.length)d.open=open[i];});
   decoratePassages();
   const area=reader.querySelector('.cs-draft');
   if(area)import('./editor/completion.js').then(({attachLessonCompletions})=>{
@@ -149,10 +160,10 @@ function paintReader() {
 function render(forceReader=false) {
   const lesson=findLesson(state.lesson), page=state.page;
   const reading=page==='lesson'||page==='chapter', full=page==='console';
-  document.title=({home:'C# с нуля',lesson:lesson.title,chapter:readingChapter()?.title,saved:'Закладки',console:'Консоль',choose:'Вторая панель',settings:'Настройки',exit:'До встречи'})[page]+' · Учебник C#';
+  document.title=({home:'C# с нуля',lesson:lesson.title,chapter:readingChapter()?.title,saved:'Закладки',console:'Консоль',choose:'Вторая панель',settings:'Настройки',exit:'До встречи'})[page]+' · Sharpwise';
   const splitLabel=split?'Скрыть вторую панель':'Разделить экран';
-  root.querySelector('#book-header').innerHTML=secondaryPane?secondaryHeader(reading):'<header class="cs-top">'+button('go:home','<span class="cs-logo" aria-hidden="true">C#</span>Учебник C#','cs-brand','aria-label="На главную"')+nav('cs-global')+
-    '<div class="header-tools">'+(reading?button('menu',icon(menuOpen?'x':'menu')+'Содержание','cs-mobile-menu','aria-expanded="'+menuOpen+'"'):'')+
+  root.querySelector('#book-header').innerHTML=secondaryPane?secondaryHeader(reading):'<header class="cs-top">'+button('go:home','<img class="cs-logo" src="icons/book-192.png" width="32" height="32" alt="">Sharpwise','cs-brand','aria-label="Sharpwise — на главную"')+nav('cs-global')+
+    '<div class="header-tools">'+(reading?contentsButton('cs-mobile-menu'):'')+
     button('dock',icon('columns-2'),'settings-icon'+(split?' on':''),'aria-label="'+splitLabel+'" title="'+splitLabel+'" aria-pressed="'+split+'"')+
     button('go:settings',icon('settings'),'settings-icon'+(page==='settings'?' on':''),'aria-label="Настройки" title="Настройки"')+'</div></header>';
   root.querySelector('#book-bottom').innerHTML=secondaryPane?'':nav('cs-mobile-nav');
@@ -162,19 +173,30 @@ function render(forceReader=false) {
     if(page==='choose')auxiliary.innerHTML=choosePaneView();
     if(page==='home')auxiliary.innerHTML='<main class="cs-home">'+homeView(lesson)+'</main>';
     if(page==='saved')auxiliary.innerHTML='<main class="cs-home">'+bookmarkedPage(lesson)+'</main>';
-    if(page==='settings')auxiliary.innerHTML=settingsView();
+    if(page==='settings'){
+      auxiliary.innerHTML=settingsView();
+      cloudSync?.mount(auxiliary.querySelector('#book-cloud-sync'));
+    }
     if(page==='exit')auxiliary.innerHTML='<main class="settings-view"><h1>До встречи!</h1><p>'+esc(store.warning||'Прогресс сохранён. Можно закрыть приложение.')+'</p>'+button('go:home','Вернуться в учебник','cs-tool')+'</main>';
   }
   root.querySelector('#book-header').hidden=page==='exit'||page==='choose';root.querySelector('#book-bottom').hidden=page==='exit'||secondaryPane;
-  paintWorkspace();glyphs();
+  paintWorkspace();glyphs();positionContents();
 }
 async function copyText(text,trigger) {
   let ok=false;
   try {await navigator.clipboard.writeText(text); ok=true;} catch {
     const input=document.createElement('textarea');input.style.cssText='position:fixed;opacity:0';input.value=text;trigger.after(input);input.select();
-    try {ok=document.execCommand('copy');} finally {input.remove();trigger.focus({preventScroll:true});}
+    try {ok=document.execCommand('copy');} catch {ok=false;} finally {input.remove();trigger.focus({preventScroll:true});}
   }
-  trigger.setAttribute('aria-live','polite');trigger.textContent=ok?'Скопировано':'Выдели и скопируй текст';
+  if(trigger.dataset.action==='copy-command'||trigger.dataset.action==='copy-sample'){
+    const label=ok?'Скопировано':'Выдели текст';
+    trigger.dataset.label=label;
+    root.querySelector('#book-copy-status').textContent=ok?'Скопировано.':'Не удалось скопировать. Выдели текст вручную.';
+    clearTimeout(trigger.copyFeedbackTimer);
+    trigger.copyFeedbackTimer=setTimeout(()=>{trigger.dataset.label='Копировать';},2000);
+  }else{
+    trigger.setAttribute('aria-live','polite');trigger.textContent=ok?'Скопировано':'Выдели и скопируй текст';
+  }
 }
 root.addEventListener('click',e=>{
   const trigger=e.target.closest('[data-action]');
@@ -194,11 +216,16 @@ root.addEventListener('click',e=>{
   if(action==='lesson') return go('lesson',arg);
   if(action==='go') return go(arg);
   if(action==='back') return resumeReading();
+  if(action==='open-syntax' && typeof lesson.syntaxGuide?.output==='string'){
+    return openConsoleEntry({key:'snippet/'+lesson.id+'/syntax-guide',source:lesson.syntaxGuide.sample,
+      files:lesson.syntaxGuide.files||{},version:lesson.version||10,topicId:lesson.id,topicTitle:lesson.title,exampleTitle:'Как устроена запись'});
+  }
   if(action==='open-example') return useExample();
   if(action==='open-editor-draft')return useExample();
   if(action==='open-beside')return useExample(true);
   if(action==='run-draft') return runExercise();
   if(action==='stop-draft')return stopExercise(exerciseRuns.get(readerKey));
+  if(action==='copy-command'||action==='copy-sample')return copyText(trigger.dataset.source??trigger.querySelector('code').textContent,trigger);
   if(action==='copy') return copyText(selectedFile==='Program.cs'?example.code:example.files[selectedFile],trigger);
   if(action==='copy-block') return copyText(trigger.closest('.copyable').querySelector('pre').textContent,trigger);
   if(action==='exit') {
@@ -207,9 +234,18 @@ root.addEventListener('click',e=>{
     window.chrome?.webview?.postMessage('close');
     return;
   }
-  if(!['menu','expand','example','file','toggle-output','answer','save','read','unsave'].includes(action))return;
-  if(action==='menu'){menuOpen=!menuOpen;reader.querySelector('.cs-side')?.classList.toggle('open',menuOpen);render();return;}
-  if(action==='expand') {state.expanded=flip(state.expanded,Number(arg));store.set('expanded',state.expanded);}
+  if(action==='menu')return toggleContents(e.detail===0);
+  if(!['expand','example','file','toggle-output','answer','save','read','unsave'].includes(action))return;
+  if(action==='expand'){
+    state.expanded=flip(state.expanded,Number(arg));store.set('expanded',state.expanded);
+    if(trigger.closest('#book-contents,.cs-side')){
+      const side=reader.querySelector('.cs-side .cs-sections');
+      if(side)side.innerHTML=contents();
+      refreshContentsPanel();glyphs();
+      if(e.detail===0&&contentsPanel.hidden)side?.querySelector('[data-action="expand:'+Number(arg)+'"]')?.focus({preventScroll:true});
+      return;
+    }
+  }
   if(action==='example') { state.example=Number(arg);selectedFile='Program.cs';store.set('example/'+lesson.id,state.example); }
   if(action==='file') selectedFile=['Program.cs',...Object.keys(example.files||{}).filter(x=>x!=='Program.cs')][Number(arg)]||'Program.cs';
   if(action==='toggle-output') hideExampleOutput=!hideExampleOutput;
@@ -241,7 +277,69 @@ root.addEventListener('submit',e=>{
   if(!run?.awaiting)return;
   const input=e.target.querySelector('input');run.awaiting=false;run.status='Программа выполняется…';run.handle?.sendInput(input.value);run.input='';showExerciseResult();
 });
-window.addEventListener('book-storage',e=>{if(e.detail==='theme')applyTheme();if(e.detail.startsWith('solved/'))refreshStepMarks();if(/^(read|saved)\//.test(e.detail)){syncMarks();refreshMarks();}if(e.detail.startsWith('note/')){decorateNoteMarks();if(state.page==='saved')render();else glyphs();}});
+function restoreReadingRoute() {
+  const route=store.get('last-reading',null);
+  if(typeof route!=='string')return;
+  const [page,id,step]=route.split('/');
+  if(page==='lesson'){
+    const lesson=findLesson(id);
+    if(!lesson || (step&&!lesson.exercises.some(task=>task.id===step)))return;
+    state.lesson=id;
+    state.example=Math.max(0,Math.min(lesson.examples.length-1,store.get('example/'+id,0)));
+  }else if(page!=='chapter'||!/^\d+$/.test(id)||!chapters[Number(id)])return;
+  lastReading=route;state.started=true;
+}
+
+function refreshCloudChanges(changes) {
+  if(!reader || !changes.length)return;
+  const keys=new Set(changes), page=state.page;
+  const reading=page==='lesson'||page==='chapter';
+  if(!reading && keys.has(store.scoped('last-reading')))restoreReadingRoute();
+  const marks=changes.some(key=>/^(read|saved)\//.test(key));
+  if(marks){
+    syncMarks();refreshMarks(false);
+    const count=document.getElementById('book-read-count');
+    if(count)count.textContent=state.read.length;
+  }
+  if(changes.some(key=>key.startsWith('solved/')))refreshStepMarks();
+  if(changes.some(key=>key.startsWith('note/')))decorateNoteMarks();
+  updateSyncedConsoles(keys);
+  if(page==='home'||page==='saved'){render();return;}
+  if(reading){
+    const task=activeTask(), area=reader.querySelector('.cs-draft,.prediction-answer');
+    if(task && area){
+      const lesson=findLesson(state.lesson);
+      const key=draftKey(lesson,task,task.answerMode==='output'?'Program.cs':state.taskFile);
+      if(keys.has(store.scoped(key))){
+        const value=store.get(key,'');
+        if(typeof value==='string'&&area.value!==value){
+          const {selectionStart,selectionEnd,selectionDirection,scrollTop}=area;
+          area.value=value;
+          area.setSelectionRange(selectionStart,selectionEnd,selectionDirection);
+          area.scrollTop=scrollTop;
+        }
+      }
+    }else if(page==='lesson' && keys.has(store.scoped('answer/'+state.lesson))) {
+      // The theory view has no editable code. Repaint its quiz after receiving the answer.
+      paintReader();
+    }
+  }
+  glyphs();
+}
+function describeSyncKey(key) {
+  const [kind, id, step, file]=key.replace(/^secondary\//,'').split('/');
+  const lesson=findLesson(id), exercise=lesson?.exercises.find(item=>item.id===step);
+  if(kind==='draft')return [lesson?.title || id,exercise?.title || 'Упражнение',file || 'Program.cs'].join(' · ');
+  if(kind==='editor')return [lesson?.title || 'Консоль', lesson?.examples[Number(step)]?.name || 'Черновик'].join(' · ');
+  if(kind==='scratch')return 'Программа '+id;
+  if(kind==='snippet')return [lesson?.title || id, 'Фрагмент кода'].join(' · ');
+  if(kind==='note')return 'Заметка';
+  return key;
+}
+window.addEventListener('book-storage',event=>{
+  if(event.detail==='theme')applyTheme();
+  if(/^(secondary\/)?(last-reading$|read\/|saved\/|solved\/|note\/|answer\/|draft\/|scratch\/|editor\/|snippet\/)/.test(event.detail)) refreshCloudChanges([event.detail]);
+});
 function migrateLoopExample() {
   if(store.get('migrated-loop-example',false))return;
   const oldKey='editor/while-foreach/0', newKey='editor/while-loop/0', draft=store.get(oldKey,null);
@@ -273,7 +371,20 @@ async function boot() {
   }
   createWorkspace();setupNotes();window.addEventListener('hashchange',route);route();
   if(secondaryPane)parent.secondaryReady(window);
-  else if ('serviceWorker' in navigator && !window.chrome?.webview && !navigator.userAgent.includes('CSharpBookAndroid/')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  else {
+    import('./sync-ui.js').then(({startCloudSync})=>startCloudSync({
+      store, label:window.chrome?.webview?'ПК':navigator.userAgent.includes('Android')?'Android':'Браузер', refresh:refreshCloudChanges, describeKey:describeSyncKey
+    })).then(controller=>{
+      cloudSync=controller;
+      cloudSync?.mount(document.getElementById('book-cloud-sync'));
+    }).catch(error=>{
+      const section=document.getElementById('book-cloud-sync');
+      if(section){section.hidden=false;section.textContent='Синхронизация недоступна. '+error.message;}
+      console.error('Cloud sync',error);
+    });
+    if('serviceWorker' in navigator && !window.chrome?.webview && !navigator.userAgent.includes('CSharpBookAndroid/'))
+      navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
 }
 boot().catch(e=>{root.innerHTML='<main class="loading" role="alert"><h1>Учебник не открылся</h1><p>'+esc(e.message)+'</p><button onclick="location.reload()">Попробовать снова</button></main>';});
 

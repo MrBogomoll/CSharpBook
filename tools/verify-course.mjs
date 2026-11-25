@@ -19,6 +19,16 @@ for (const chapter of course) {
   checkTheory(chapter);
   for (const topic of chapter.topics) {
     checkTheory(topic);
+    const guide = topic.syntaxGuide;
+    if (!guide?.sample?.trim() || !guide.try?.trim() || !Array.isArray(guide.parts) ||
+        guide.parts.length < 2 || guide.parts.some(pair => !Array.isArray(pair) ||
+          pair.length !== 2 || pair.some(value => typeof value !== 'string' || !value.trim()))) {
+      throw new Error('Incomplete syntax guide: ' + topic.id);
+    }
+    if (typeof guide.output === 'string') {
+      programs.push({ id: topic.id + '/syntax', version: topic.version ?? 10,
+        code: guide.sample, files: guide.files, stdin: guide.stdin, output: guide.output });
+    }
     if (!topic.id || ids.has(topic.id)) throw new Error('Invalid topic ID: ' + topic.id);
     ids.add(topic.id);
     if (!topic.title || !topic.intro || !topic.section || !topic.description ||

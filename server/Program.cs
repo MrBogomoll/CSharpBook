@@ -9,7 +9,7 @@ if (!Directory.Exists(root)) {
     return 2;
 }
 var server = BookServer.Create(root,port,lan);
-Console.WriteLine($"Учебник C# в браузере: http://127.0.0.1:{port}/");
+Console.WriteLine($"Sharpwise в браузере: http://127.0.0.1:{port}/");
 if (lan)
     foreach (var ip in Dns.GetHostAddresses(Dns.GetHostName()).Where(ip=>ip.AddressFamily==AddressFamily.InterNetwork && !IPAddress.IsLoopback(ip)))
         Console.WriteLine($"В той же сети Wi-Fi: http://{ip}:{port}/");

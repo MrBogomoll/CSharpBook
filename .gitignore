@@ -14,3 +14,5 @@ signing/
 *.local.ps1
 .android-workdir.local
 .vs/
+
+cloud-sync.json
