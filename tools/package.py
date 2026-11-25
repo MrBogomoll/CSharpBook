@@ -28,6 +28,7 @@ if not desktop_exe.is_file() or not cmp(published_exe,desktop_exe,shallow=False)
 shutil.copy2(root/'host/Начало работы.txt',desktop)
 shutil.copytree(web,desktop/'wwwroot',dirs_exist_ok=True)
 shutil.copytree(root/'host/licenses',desktop/'licenses',dirs_exist_ok=True)
+shutil.copy2(root/'LICENSE',desktop/'licenses'/'Sharpwise-LICENSE.txt')
 def pack_folder(zip_,folder,prefix=''):
     for f in sorted(folder.rglob('*')):
         if f.is_file():zip_.write(f,prefix+f.relative_to(folder).as_posix(),compress_type=ZIP_STORED if f.suffix in ['.bin','.zip'] else ZIP_DEFLATED)
@@ -35,6 +36,7 @@ with ZipFile(out/f'Sharpwise-{version}-Windows-x64.zip','w',ZIP_DEFLATED,compres
     pack_folder(z,desktop,'CSharpBook/')
 with ZipFile(out/f'Sharpwise-{version}-Web.zip','w',ZIP_DEFLATED,compresslevel=5) as z:
     pack_folder(z,web,'wwwroot/')
+    z.write(root/'LICENSE','LICENSE')
     for f in a.server.glob('CSharpBook.Server.*'):
         if f.suffix=='.dll' or f.name.endswith(('.runtimeconfig.json','.deps.json')):z.write(f,f.name)
     z.writestr('README.txt','Sharpwise — учебник C# для браузера\n\nРаспакуй архив и установи .NET SDK 10 или среду ASP.NET Core 10. Открой терминал в распакованной папке и выполни dotnet CSharpBook.Server.dll . В браузере открой http://127.0.0.1:53821/ . Для телефона в той же сети добавь к команде флаг --lan и открой на телефоне адрес, который напечатает терминал.\n\nДля установки веб-приложения на домашний экран iPhone или Android размести wwwroot на HTTPS-сервере. Для интерактивного ввода в браузерах без поддержки общей памяти подключи серверный маршрут /api/book-input вместе с маршрутами read и write. Настройки заголовков для статического хостинга приведены в wwwroot/_headers. Обновление списка автономных файлов выполняется при сборке.\n')

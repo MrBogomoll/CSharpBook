@@ -15,6 +15,7 @@ def stageAssets = tasks.register('stageBookAssets', Sync) {
     into stagedAssets
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from(webRoot) { into 'www' }
+    from('../LICENSE') { into 'licenses'; rename { 'Sharpwise-LICENSE.txt' } }
     from('LICENSE-NanoHTTPD.txt') { into 'licenses'; rename { 'NanoHTTPD.txt' } }
     from(new File(webRoot.parentFile, 'host/licenses')) { into 'licenses' }
     from(new File(webRoot.parentFile, 'licenses')) { into 'licenses' }
