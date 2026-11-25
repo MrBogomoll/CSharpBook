@@ -52,8 +52,8 @@ function exerciseView(lesson,task) {
     (task.stdin?.length?'<p>'+(checked?'Пример ввода':'Данные для проверки по порядку')+': '+task.stdin.map(x=>'<code>'+esc(x||'пустая строка')+'</code>').join(', ')+'.</p>':'')+
     syntaxGuide(lesson,true)+gapHint+fileTabs+(predict?prediction:codeArea)+'<div class="cp-runbar">'+button('run-draft',icon(predict||checked?'check':'play')+(predict?'Проверить ответ':checked?'Проверить решение':'Запустить код'),'cp-run')+
     (checked?button('run-custom',icon('play')+'Со своим вводом','cs-tool'):'')+
-    (predict?'':button('stop-draft',icon('square')+'Остановить','cs-tool','hidden'))+'</div><div class="cp-console"><div class="cp-result-head"><strong>'+(predict?'Проверка ответа':'Результат запуска')+'</strong>'+
-    (predict?'':button('clear-draft-output',icon('eraser')+'Очистить вывод','cp-clear','disabled'))+'</div>'+
+    (predict?'':button('stop-draft',icon('square')+'Остановить','cs-tool','hidden')+
+      button('reset-draft',icon('rotate-ccw')+'Сбросить код','cs-tool','title="Вернуть исходный код упражнения и очистить результат"'))+'</div><div class="cp-console"><div class="cp-result-head"><strong>'+(predict?'Проверка ответа':'Результат запуска')+'</strong></div>'+
     '<div class="cp-response" role="status" aria-live="polite"><p class="cp-status">'+(exerciseDone(lesson,task)?'Упражнение решено.':predict?'Здесь появится результат проверки.':'Здесь появится вывод твоей программы.')+'</p></div>'+
     (predict?'':'<form class="cp-input" hidden><input aria-label="Ввод для программы" autocomplete="off" placeholder="Введи строку для программы"><button type="submit">Отправить</button></form>')+'</div>'+
     (predict?'<details><summary>Разбор ответа</summary>'+copyable(task.output)+(task.explanation?'<p>'+formatText(task.explanation)+'</p>':'')+'</details>':'<details><summary>Сверить ожидаемый вывод</summary>'+copyable(task.output)+'</details><details><summary>Посмотреть решение</summary>'+reference+'</details>')+
@@ -63,10 +63,8 @@ function showExerciseResult() {
   const run=exerciseRuns.get(readerKey);
   const widget=reader.querySelector('.cp-widget');
   if(!run||!widget)return;
-  const visibleOutput=run.output.slice(run.visibleFrom);
-  const clear=widget.querySelector('.cp-clear'), failed=run.failedCase;
-  if(clear)clear.disabled=!visibleOutput && !failed && !(run.error && !run.running);
-  widget.querySelector('.cp-response').innerHTML=(visibleOutput?'<pre class="cp-output">'+esc(visibleOutput)+'</pre>':'')+
+  const failed=run.failedCase;
+  widget.querySelector('.cp-response').innerHTML=(run.output?'<pre class="cp-output">'+esc(run.output)+'</pre>':'')+
     '<p class="cp-status'+(run.error?' cp-problem':'')+'">'+esc(run.status)+'</p>'+
     (failed?'<dl class="case-details"><dt>Входные данные</dt><dd><pre>'+esc(failed.stdin.map(s=>s || '(пустая строка)').join('\n') || '(нет строк)')+
       '</pre></dd><dt>Ожидаемый вывод</dt><dd><pre>'+esc(failed.output || '(пусто)')+'</pre></dd></dl>':'');
@@ -76,15 +74,18 @@ function showExerciseResult() {
   if(stop)stop.hidden=!run.running;
   if(form){form.hidden=!run.awaiting;if(form.elements[0].value!==run.input)form.elements[0].value=run.input;}
 }
-function clearExerciseOutput() {
-  const run=exerciseRuns.get(readerKey);
-  if(!run)return;
-  // Grading uses the complete transcript, including text cleared while waiting for input.
-  run.visibleFrom=run.output.length;
-  run.failedCase=null;
-  if(!run.running && run.error){run.error=false;run.status='Вывод очищен.';}
-  showExerciseResult();
-  if(run.awaiting)reader.querySelector('.cp-input input')?.focus({preventScroll:true});
+function resetExercise() {
+  const lesson=findLesson(state.lesson),task=activeTask();
+  if(!task || task.answerMode==='output')return;
+  stopExercise(exerciseRuns.get(readerKey));
+  exerciseRuns.delete(readerKey);
+  for(const [name,source] of Object.entries({'Program.cs':task.starter||'',...task.files})){
+    const key=draftKey(lesson,task,name);
+    if(store.get(key,source)!==source)store.set(key,source);
+  }
+  state.taskFile='Program.cs';
+  paintReader();glyphs();
+  reader.querySelector('[data-action="reset-draft"]')?.focus({preventScroll:true});
 }
 function refreshStepMarks() {
   const nav=reader.querySelector('.study-steps');
@@ -108,7 +109,7 @@ function finishExercise(lesson,task,run,message) {
   showExerciseResult();
 }
 function executeCase(startRun,program,stdin,run,key,label) {
-  run.output='';run.visibleFrom=0;run.status=label;
+  run.output='';run.status=label;
   const paint=()=>{if(readerKey===key)showExerciseResult();};
   paint();
   return new Promise(resolve=>{
@@ -130,7 +131,7 @@ async function runExercise(custom=false) {
   if(!task)return;
   const key=exercisePath(lesson,task);
   if(exerciseRuns.get(key)?.running)return;
-  const run={running:false,awaiting:false,output:'',visibleFrom:0,status:'',input:'',error:false,handle:null};
+  const run={running:false,awaiting:false,output:'',status:'',input:'',error:false,handle:null};
   exerciseRuns.set(key,run);
   if(task.answerMode==='output'){
     if(outputMatches(reader.querySelector('.prediction-answer').value,task.output))
@@ -158,7 +159,7 @@ async function runExercise(custom=false) {
         }
         if(i===0)sampleOutput=run.output;
       }
-      run.output=sampleOutput;run.visibleFrom=0;
+      run.output=sampleOutput;
       finishExercise(lesson,task,run,'Все проверки пройдены. Упражнение решено.');
     }else{
       await executeCase(startRun,program,undefined,run,key,'Подготовка компилятора…');

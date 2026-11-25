@@ -102,7 +102,7 @@ function homeView(lesson){
     }).join(''):'';
     return '<div class="cs-chapter-card">'+head+topics+'</div>';
   }).join('');
-  return '<div class="cs-home-intro"><h1><span>C#</span> с нуля</h1><p>Начни с первой программы, затем научись хранить данные и выбирать, что программа сделает дальше.</p></div><div class="cs-home-grid">'+resume+'<section class="cs-toc"><div class="cs-heading-row"><h2>Содержание</h2><small>'+chapters.length+' '+words(chapters.length,'тема','темы','тем')+' · '+lessons.length+' '+words(lessons.length,'глава','главы','глав')+'</small></div>'+solvedList('course')+'<details class="topic-index"><summary>Указатель тем</summary><div class="topic-index-body"></div></details>'+rows+'</section></div>';
+  return '<div class="cs-home-intro"><h1><span>C#</span> с нуля</h1><p>Начни с первой программы, затем научись хранить данные и выбирать, что программа сделает дальше.</p></div>'+courseSearchForm()+'<div class="cs-home-grid">'+resume+'<section class="cs-toc"><div class="cs-heading-row"><h2>Содержание</h2><small>'+chapters.length+' '+words(chapters.length,'тема','темы','тем')+' · '+lessons.length+' '+words(lessons.length,'глава','главы','глав')+'</small></div>'+solvedList('course')+'<details class="topic-index"><summary>Указатель тем</summary><div class="topic-index-body"></div></details>'+rows+'</section></div>';
 }
 function syntaxGuide(lesson, recap = false) {
   if (!lesson.syntaxGuide) return '';

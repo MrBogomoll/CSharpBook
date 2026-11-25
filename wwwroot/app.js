@@ -51,7 +51,7 @@ function settingsView() {
   let channel='';
   if (betaVersion) channel='<p>Официальная бета. Следующая стабильная версия установится поверх неё и сохранит твой прогресс.</p>';
   else if (preview) channel='<p>Тестовая сборка. Перед обновлением ты увидишь номер стабильного выпуска.</p>';
-  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.4.1')+'</p><fieldset><legend>Оформление учебника</legend>'+
+  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.4.2')+'</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
     '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
     solvedList('course')+'<section id="book-cloud-sync" hidden></section>'+
@@ -160,6 +160,7 @@ function render(forceReader=false) {
   const splitLabel=split?'Скрыть вторую панель':'Разделить экран';
   root.querySelector('#book-header').innerHTML=secondaryPane?secondaryHeader(reading):'<header class="cs-top">'+button('go:home','<img class="cs-logo" src="icons/book-192.png" width="32" height="32" alt="">Sharpwise','cs-brand','aria-label="Sharpwise — на главную"')+nav('cs-global')+
     '<div class="header-tools">'+(reading?contentsButton('cs-mobile-menu'):'')+
+    (full?button('find-course',icon('search'),'settings-icon','aria-label="Поиск по учебнику" title="Поиск по учебнику"'):'')+
     button('dock',icon('columns-2'),'settings-icon'+(split?' on':''),'aria-label="'+splitLabel+'" title="'+splitLabel+'" aria-pressed="'+split+'"')+
     button('go:settings',icon('settings'),'settings-icon'+(page==='settings'?' on':''),'aria-label="Настройки" title="Настройки"')+'</div></header>';
   root.querySelector('#book-bottom').innerHTML=secondaryPane?'':nav('cs-mobile-nav');
@@ -169,8 +170,16 @@ function render(forceReader=false) {
     if(page==='choose')auxiliary.innerHTML=choosePaneView();
     if(page==='home'){
       const listOpen=auxiliary.querySelector('.cs-home .solved-tasks')?.open;
+      const field=auxiliary.querySelector('#course-query');
+      const selection=field && field===document.activeElement ? [field.selectionStart,field.selectionEnd] : null;
       auxiliary.innerHTML='<main class="cs-home">'+homeView(lesson)+'</main>';
       if(listOpen)auxiliary.querySelector('.solved-tasks').open=true;
+      mountCourseSearch(auxiliary.querySelector('.course-search'));
+      if(selection){
+        const search=auxiliary.querySelector('#course-query');
+        search.focus({preventScroll:true});
+        search.setSelectionRange(...selection);
+      }
       mountTopicIndex(auxiliary.querySelector('.topic-index'));
     }
     if(page==='saved')auxiliary.innerHTML='<main class="cs-home">'+bookmarkedPage(lesson)+'</main>';
@@ -218,6 +227,11 @@ root.addEventListener('click',e=>{
   if(action==='dock')return toggleDock();
   if(action==='new-console')return newConsole();
   if(action==='lesson') return go('lesson',arg);
+  if(action==='find-course'){
+    go('home');
+    auxiliary.querySelector('.course-search input')?.focus();
+    return;
+  }
   if(action==='go') return go(arg);
   if(action==='back') return resumeReading();
   if(action==='open-syntax' && typeof lesson.syntaxGuide?.output==='string'){
@@ -229,7 +243,7 @@ root.addEventListener('click',e=>{
   if(action==='open-beside')return useExample(true);
   if(action==='run-draft') return runExercise();
   if(action==='run-custom') return runExercise(true);
-  if(action==='clear-draft-output')return clearExerciseOutput();
+  if(action==='reset-draft')return resetExercise();
   if(action==='stop-draft')return stopExercise(exerciseRuns.get(readerKey));
   if(action==='copy-command'||action==='copy-sample')return copyText(trigger.dataset.source??trigger.querySelector('code').textContent,trigger);
   if(action==='copy') return copyText(selectedFile==='Program.cs'?example.code:example.files[selectedFile],trigger);

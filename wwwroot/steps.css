@@ -140,3 +140,18 @@
 #book .case-details dt {font-weight:600}
 #book .case-details dd {margin:2px 0 8px}
 #book .case-details pre {margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+
+#book .course-search {margin:0 0 18px}
+#book .course-search label {display:block;margin-bottom:6px;font-weight:600}
+#book .course-search-field {display:flex;align-items:center;gap:8px;padding-inline:10px;border:1px solid var(--cs-line);border-radius:8px;background:var(--cs-nav);color:var(--cs-weak)}
+#book .course-search-field:focus-within {outline:2px solid var(--cs-violet)}
+#book .course-search input {width:100%;min-width:0;min-height:44px;border:0;outline:0;font:inherit;color:var(--cs-ink);background:transparent}
+#book .course-search [role=status]:not(:empty) {margin:12px 0;color:var(--cs-weak)}
+#book .course-search ul {list-style:none;padding:0;margin:0}
+#book .course-search li {border-bottom:1px solid var(--cs-line)}
+#book .course-search a {display:grid;gap:3px;padding:10px 2px;color:inherit;text-decoration:none;overflow-wrap:anywhere}
+#book .course-search a strong {color:var(--cs-violet)}
+#book .course-search a:hover strong,#book .course-search a:focus-visible strong {text-decoration:underline}
+#book .course-search a small {color:var(--cs-weak)}
+#book .course-search .cs-tool {margin-top:8px;color:var(--cs-violet)}
+#book .cs-home-grid[hidden] {display:none}

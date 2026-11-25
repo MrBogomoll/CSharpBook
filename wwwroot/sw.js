@@ -1,4 +1,4 @@
-const BOOK_CACHE='csharp-book-342bd64c5d203124';
+const BOOK_CACHE='csharp-book-318ffb3c17db6948';
 const appBase=new URL('./',self.location.href);
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const list=await fetch(new URL('offline.json',appBase),{cache:'no-store'});
