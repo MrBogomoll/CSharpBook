@@ -1,10 +1,25 @@
 export const syncIntervals = [1, 5, 15, 30, 60];
+const maxCustomMinutes = 99 * 60 + 59;
+
+export function validIntervalPart(value, maximum) {
+  return /^\d+$/.test(value) && Number(value) <= maximum;
+}
+
+export function parseCustomInterval(hours, minutes) {
+  if (!validIntervalPart(hours, 99) || !validIntervalPart(minutes, 59)) return null;
+  const total = Number(hours) * 60 + Number(minutes);
+  return total || null;
+}
 
 export function syncPreferences(value) {
+  const customMinutes = value?.customMinutes;
+  const hasCustom = Number.isInteger(customMinutes) && customMinutes > 0 && customMinutes <= maxCustomMinutes;
+  const preset = syncIntervals.includes(value?.minutes) ? value.minutes : 5;
   return {
     onChange: value?.onChange !== false,
     timer: value?.timer === true,
-    minutes: syncIntervals.includes(value?.minutes) ? value.minutes : 5
+    minutes: value?.minutes === 'custom' && hasCustom ? 'custom' : preset,
+    ...(hasCustom ? {customMinutes} : {})
   };
 }
 
@@ -20,7 +35,8 @@ export class SyncSchedule {
 
   configure(connected, preferences, lastCheck = Date.now()) {
     this.onChange = connected && preferences.onChange;
-    this.period = connected && preferences.timer ? preferences.minutes * 60000
+    const minutes = preferences.minutes === 'custom' ? preferences.customMinutes : preferences.minutes;
+    this.period = connected && preferences.timer ? minutes * 60000
       : this.onChange ? 90000 : Infinity;
     this.changeAt = Infinity;
     this.pollAt = Math.min(lastCheck, Date.now()) + this.period;

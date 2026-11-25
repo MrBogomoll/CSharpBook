@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {SyncSchedule, syncPreferences} from '../../wwwroot/sync-schedule.js';
+import {SyncSchedule, parseCustomInterval, syncPreferences} from '../../wwwroot/sync-schedule.js';
 import {isSyncKey} from '../../wwwroot/sync-engine.js';
 
 function clock(t, preferences) {
@@ -91,6 +91,27 @@ test('timer preferences and check timestamps belong to the device', () => {
   assert.equal(isSyncKey('sync-auto-settings'), false);
   assert.equal(isSyncKey('sync-last-check/google'), false);
   assert.equal(isSyncKey('sync-last-check/yandex'), false);
+});
+
+test('custom hours and minutes accept whole units and reject empty or out-of-range intervals', () => {
+  assert.equal(parseCustomInterval('0', '01'), 1);
+  assert.equal(parseCustomInterval('2', '30'), 150);
+  assert.equal(parseCustomInterval('99', '59'), 5999);
+  for (const [hours, minutes] of [['0','0'],['','0'],['2',''],['-1','2'],['1','60'],['100','0'],['1.5','2'],['1e1','0'],['0','1e1']]) {
+    assert.equal(parseCustomInterval(hours, minutes), null);
+  }
+});
+
+test('custom intervals survive settings reload including a duration equal to a preset', t => {
+  const saved = {onChange:false, timer:true, minutes:'custom', customMinutes:5};
+  assert.deepEqual(syncPreferences(JSON.parse(JSON.stringify(saved))), saved);
+  assert.equal(syncPreferences({...saved, customMinutes:6000}).minutes, 5);
+  assert.equal(syncPreferences({...saved, minutes:30}).customMinutes, 5);
+  const {exchanges, tick} = clock(t, {...saved, customMinutes:97});
+  tick(97 * 60000 - 1);
+  assert.equal(exchanges.length, 0);
+  tick(1);
+  assert.equal(exchanges.length, 1);
 });
 
 test('an exchange interrupted by a dropped network retries once when the disk is reachable', t => {
