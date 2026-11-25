@@ -10,6 +10,7 @@ class PaneStore extends BookStore {
   set(key,value){super.set(this.scoped(key),value);}
 }
 let primary, reader, auxiliary, workspace, dock, divider, dockTabs, consolePages, consolePanel;
+let updateReaderScrollbar, updateConsoleScrollbar;
 let contentsPanel;
 let secondaryFrame, readyFrame, pendingExample, draftManager;
 let split=false, activeConsole='', lastReading='', readerKey='';
@@ -55,6 +56,8 @@ function createWorkspace() {
   dock=root.querySelector('#book-dock');divider=root.querySelector('#book-divider');
   consolePanel=root.querySelector('#book-console');
   dockTabs=root.querySelector('#dock-tabs');consolePages=root.querySelector('#editor-host');
+  updateReaderScrollbar=addPageScrollbar(primary, 'Прокрутка страницы');
+  updateConsoleScrollbar=addPageScrollbar(consolePages, 'Прокрутка страницы консоли');
   new ResizeObserver(revealActiveConsoleTab).observe(dockTabs);
   draftManager=createDraftManager(root.querySelector('#stored-programs'),{
     list:listConsoleDrafts, rename:renameConsoleDraft, open:openConsoleDraft,
@@ -269,6 +272,7 @@ function selectConsole(key) {
   activeConsole=key;
   for(const item of consoleTabs.values())item.host.hidden=item!==tab;
   tab.cleanup?.restoreOutputLayout(store.get('console-output-layout',null));
+  updateConsoleScrollbar();
   consolePages.scrollTop=tab.scroll||0;
   store.set('console',tab.entry);rememberTabs();paintConsoleTabs();
 }
@@ -451,6 +455,8 @@ function paintWorkspace() {
   workspace.classList.toggle('is-split',both);
   root.classList.toggle('has-dock',both);
   primary.hidden=full;consolePanel.hidden=!full;divider.hidden=!both;dock.hidden=!both;
+  // Reserve the gutter before the reader restores a saved position near the end.
+  if(!full)updateReaderScrollbar();
   if(full)ensureConsole();
   if(both)mountSecondary();
   if(state.page==='exit'&&secondaryFrame){

@@ -7,6 +7,8 @@ const mainFile = 'Program.cs';
 const html = value => String(value ?? '').replace(/[&<>"']/g, c =>
   ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'})[c]);
 const icon = name => '<i data-lucide="' + name + '" aria-hidden="true"></i>';
+const historyButton = (action, title, glyph) => '<button type="button" class="cx-history" data-action="' +
+  action + '" aria-label="' + title + '" title="' + title + '" disabled>' + icon(glyph) + '</button>';
 const button = (action, title, glyph, style = 'cx-soft', attrs = '') =>
   '<button type="button" class="' + style + '" data-action="' + action + '" ' + attrs + '>' +
   (glyph ? icon(glyph) : '') + '<span>' + html(title) + '</span></button>';
@@ -97,9 +99,10 @@ function mountConsolePage(container, {
     '<div class="cx-content"><div class="cx-head"><div>' + '<div class="cx-crumb"' + (trail(title) ? '' : ' hidden') + '>' + html(trail(title)) + '</div>' +
     '<h1>Консоль</h1></div>' + (showHeader ? '' : back) + '</div>' +
     '<div class="cx-grid"><section class="cx-editor" aria-label="Редактор C#"><div class="cx-filebar"><div class="cx-files"></div>' +
+    historyButton('undo','Отменить','undo-2') + historyButton('redo','Повторить','redo-2') +
     '<button type="button" class="cx-output-toggle" data-action="toggle-result" aria-label="Скрыть вывод" title="Скрыть вывод" aria-expanded="true">' +
     icon('panel-right-close') + icon('panel-right-open') + '</button>' +
-    button('copy','Копировать','copy','cx-copy') +
+    button('copy','Копировать','copy','cx-copy','aria-label="Копировать" title="Копировать"') +
     '<button type="button" class="cx-fullscreen" data-action="toggle-fullscreen" aria-label="Развернуть консоль" title="Развернуть консоль" aria-pressed="false">' +
     icon('maximize-2') + icon('minimize-2') + '</button></div><div class="cx-codeview"></div>' +
     '<div class="cx-completions" aria-label="Подсказки ввода" hidden></div><div class="cx-editor-foot"><div class="cx-controls">' +
@@ -126,6 +129,7 @@ function mountConsolePage(container, {
   const fileMenu = $('.cx-files'), help = $('.cx-help'), result = $('.cx-result');
   const inputForm = $('.cx-stdin'), lineInput = inputForm.elements.line;
   const host = $('.cx-codeview');
+  const undoButton = $('[data-action=undo]'), redoButton = $('[data-action=redo]');
   const fullscreenButton = $('.cx-fullscreen');
   const scrollHost = container.parentElement;
   let previousScroll = 0;
@@ -150,13 +154,14 @@ function mountConsolePage(container, {
     heightBeforeEditing = visibleHeight();
     widthBeforeEditing = keyboardWindow.innerWidth;
   },{signal});
-  $('.cx-output-toggle').addEventListener('pointerdown',event => {
-    if (!host.contains(document.activeElement)) return;
+  $('.cx-filebar').addEventListener('pointerdown',event => {
+    const control = event.target.closest('.cx-output-toggle,.cx-history');
+    if (!control || !host.contains(document.activeElement)) return;
     // Dismissing Android's keyboard leaves the editor focused. Ignore small changes from browser bars.
     const keyboardVisible = keyboardWindow.navigator.virtualKeyboard?.boundingRect.height > 0 ||
       (widthBeforeEditing === keyboardWindow.innerWidth && heightBeforeEditing - visibleHeight() > 90);
     if (event.pointerType === 'mouse' || keyboardVisible) event.preventDefault();
-    else event.currentTarget.focus({preventScroll:true});
+    else control.focus({preventScroll:true});
   },{signal});
   page.addEventListener('keydown',event => {
     if (event.key === 'Escape' && !event.isComposing && page.classList.contains('is-fullscreen') && $('.cx-completions').hidden) {
@@ -170,7 +175,13 @@ function mountConsolePage(container, {
     resetCopyButton();
     onChange?.(codeFiles.get(mainFile), extraFiles());
     scheduleRefresh();
-  }, run, () => ({version:Number(version), files:Object.fromEntries(codeFiles)}));
+  }, run, () => ({version:Number(version), files:Object.fromEntries(codeFiles)}), (canUndo,canRedo) => {
+    const focused = document.activeElement;
+    undoButton.disabled = !canUndo;
+    redoButton.disabled = !canRedo;
+    if (focused === undoButton && !canUndo && canRedo) redoButton.focus({preventScroll:true});
+    if (focused === redoButton && !canRedo && canUndo) undoButton.focus({preventScroll:true});
+  });
   let availableHeight = scrollHost.clientHeight;
   const paneResize = new ResizeObserver(([entry]) => {
     const next = entry.contentRect.height;
@@ -202,9 +213,14 @@ function mountConsolePage(container, {
     const copy = $('.cx-copy');
     if (copy.dataset.copied) {
       delete copy.dataset.copied;
-      copy.innerHTML = icon('copy') + 'Копировать';
-      icons();
+      setCopyLabel(copy,'Копировать','copy');
     }
+  }
+  function setCopyLabel(copy,text,glyph) {
+    copy.setAttribute('aria-label',text);
+    copy.title = text;
+    copy.innerHTML = icon(glyph) + '<span>' + text + '</span>';
+    icons();
   }
   function diagnosticFile(error) {
     const path = String(error.file || mainFile).replaceAll('\\','/');
@@ -375,6 +391,8 @@ function mountConsolePage(container, {
     switch (action) {
       case 'back': onBack?.(); break;
       case 'toggle-fullscreen': setFullscreen(!page.classList.contains('is-fullscreen')); break;
+      case 'undo': editor.undo(); break;
+      case 'redo': editor.redo(); break;
       case 'run': run(); break;
       case 'stop': stop(); break;
       case 'reset-console': {
@@ -397,9 +415,9 @@ function mountConsolePage(container, {
           editor.select(0,code.length);
           let copied = false;
           try {copied = document.execCommand('copy');} catch {}
-          if (!copied) {trigger.textContent = 'Код выделен'; break;}
+          if (!copied) {setCopyLabel(trigger,'Код выделен','text-select'); break;}
         }
-        trigger.textContent = 'Скопировано'; break;
+        setCopyLabel(trigger,'Скопировано','check'); break;
       }
       case 'hint': expanded = !expanded; refresh(); break;
       case 'locate':
@@ -442,14 +460,15 @@ function mountConsolePage(container, {
     outputPanel.restore(value);
     if (phase === 'input' && busy) outputPanel.revealForInput();
   };
-  function replaceProject(next, nextFile) {
+  function replaceProject(next, nextFile, external = false) {
     codeFiles.clear();
     for (const [name, text] of next) {
       codeFiles.set(name, text);
-      editor.updateFile(name, text);
+      editor.updateFile(name, text, external);
     }
     current = next.has(nextFile) ? nextFile : mainFile;
     editor.switchFile(current, next.get(current));
+    editor.discardRemovedFiles(next);
     drawFiles();
   }
   cleanup.setTitle = name => {
@@ -458,7 +477,7 @@ function mountConsolePage(container, {
     crumb.hidden = !crumb.textContent;
   };
   cleanup.updateFiles = draft => {
-    replaceProject(projectFiles(draft),current);
+    replaceProject(projectFiles(draft),current,true);
     scheduleRefresh();
   };
   return cleanup;
