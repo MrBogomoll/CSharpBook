@@ -13,7 +13,7 @@ const statuses = {
   idle: ['Готово к запуску','circle'], loading: ['Подготовка','loader-circle'],
   running: ['Выполняется','play'], input: ['Ожидание ввода','keyboard'],
   ok: ['Выполнено','circle-check'], error: ['Ошибка','circle-alert'],
-  stopped: ['Остановлено','square'], stale: ['Код изменён','pencil']
+  stopped: ['Остановлено','square'], stale: ['Код изменён','pencil'], cleared: ['Вывод очищен','eraser']
 };
 const hints = {
   CS0246: 'Проверь имя типа и регистр букв. Для типа из библиотеки может понадобиться директива using с именем пространства имён.',
@@ -93,7 +93,8 @@ function mountConsolePage(container, {
     button('run','Запустить','play','cx-run') + button('stop','Остановить','square','cx-stop','hidden') +
     '</div><span class="cx-editor-note">.NET ' + html(version) + '</span></div></section>' +
     '<section class="cx-terminal" aria-label="Результат запуска"><div class="cx-termbar"><span class="cx-termname">' +
-    icon('terminal') + 'Результат</span><span class="cx-term-status" role="status"></span></div>' +
+    icon('terminal') + 'Результат</span><span class="cx-term-status" role="status"></span>' +
+    button('clear-output','Очистить вывод','eraser','cx-clear','disabled') + '</div>' +
     '<div class="cx-result"><p class="cx-idle"></p><pre class="cx-out" aria-label="Вывод программы" hidden></pre>' +
     '<div class="cx-errors"></div></div><form class="cx-stdin" hidden><label>Введи строку<input name="line" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>' +
     '<button class="cx-send" type="submit">Отправить</button></form></section></div><div class="cx-help"></div></div></div>';
@@ -104,6 +105,7 @@ function mountConsolePage(container, {
   const icons = () => globalThis.lucide?.createIcons?.({root: page, attrs: {width:16,height:16}});
   let current = mainFile, phase = 'idle', output = '', errors = [], snapshot = null, expanded = false;
   let active = null, serial = 0, busy = false, frame = 0, refreshPending = false;
+  let cleared = false;
   let tutorMarkup = '', diagMarkup = '', lastStatus = '';
   const fileMenu = $('.cx-files'), help = $('.cx-help'), result = $('.cx-result');
   const inputForm = $('.cx-stdin'), lineInput = inputForm.elements.line;
@@ -192,6 +194,7 @@ function mountConsolePage(container, {
     note.hidden = !note.textContent || (!!output && !['stale','stopped'].includes(status));
     $('.cx-run').disabled = busy;
     $('.cx-stop').hidden = !busy;
+    $('.cx-clear').disabled = !output && !errors.length;
     inputForm.hidden = phase !== 'input' || !busy;
     if (!inputForm.hidden) lineInput.disabled = false;
     const visibleErrors = stale ? [] : errors;
@@ -242,12 +245,13 @@ function mountConsolePage(container, {
     switch (event.type) {
       case 'output':
         output += String(event.text ?? '');
+        if (output) cleared = false;
         if (!frame) frame = requestAnimationFrame(() => { renderOutput(); refresh(); });
         return;
       case 'ready': phase = 'running'; break;
       case 'input': phase = 'input'; break;
-      case 'error': errors.push(event); phase = 'error'; break;
-      case 'done': busy = false; active = null; phase = errors.length ? 'error' : 'ok'; break;
+      case 'error': errors.push(event); cleared = false; phase = 'error'; break;
+      case 'done': busy = false; active = null; phase = errors.length ? 'error' : cleared ? 'cleared' : 'ok'; break;
       default: return;
     }
     renderOutput();
@@ -257,7 +261,7 @@ function mountConsolePage(container, {
   async function run() {
     if (busy || signal.aborted) return;
     const id = ++serial;
-    busy = true; phase = 'loading'; errors = []; output = ''; expanded = false;
+    busy = true; phase = 'loading'; errors = []; output = ''; cleared = false; expanded = false;
     snapshot = new Map(codeFiles);
     lineInput.value = '';
     editor.close(); releaseCompletionEngine(); renderOutput(); refresh();
@@ -306,6 +310,12 @@ function mountConsolePage(container, {
       case 'back': onBack?.(); break;
       case 'run': run(); break;
       case 'stop': stop(); break;
+      case 'clear-output':
+        output = ''; errors = []; expanded = false; cleared = true;
+        if (!busy) { phase = 'cleared'; snapshot = null; }
+        renderOutput(); refresh();
+        if (busy && phase === 'input') lineInput.focus({preventScroll:true});
+        break;
       case 'complete': editor.suggestExample(); break;
       case 'copy': {
         const code = codeFiles.get(current);

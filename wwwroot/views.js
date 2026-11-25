@@ -19,7 +19,7 @@ function contents(asList=false) {
 }
 const keywords = new Set('abstract as async await base bool break byte case catch char checked class closed const continue decimal default delegate do double else enum event explicit extension false field finally float for foreach from get global group if implicit in init int interface internal into is join let lock long namespace new not null object operator orderby out override params partial private protected public readonly record ref required return sealed select set short static string struct switch this throw true try typeof uint ulong union unmanaged ushort using var virtual void when where while with yield'.split(' '));
 function syntax(source) {
-  const tokens = /\/\/[^\n]*|\/\*[\s\S]*?\*\/|(?:\$?@|@\$)"(?:""|[^"])*"|\$?"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|\b\d[\d_.]*[dDfFmMuUlL]*\b|[\p{L}_][\p{L}\p{N}_]*/gu;
+  const tokens = /\/\/[^\n]*|\/\*[\s\S]*?\*\/|\$*(?<quotes>"{3,})(?!")[\s\S]*?\k<quotes>(?!")|(?:\$?@|@\$)"(?:""|[^"])*"|\$?"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|\b\d[\d_.]*[dDfFmMuUlL]*\b|[\p{L}_][\p{L}\p{N}_]*/gu;
   let result='',start=0;
   for (const match of source.matchAll(tokens)) {
     const word=match[0],offset=match.index;
