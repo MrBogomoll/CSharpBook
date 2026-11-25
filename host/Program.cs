@@ -28,7 +28,6 @@ internal static class Program
         var lan = args.Contains("--lan");
         try
         {
-            if (!File.Exists(Path.Combine(root, "index.html"))) throw new FileNotFoundException("Рядом с приложением должна быть распакованная папка wwwroot.");
             if (serveOnly) { BookServer.Create(root, port, lan).Run(); return; }
             using var singleton = new Mutex(true, "Local\\CSharpBook.Window.v1", out var first);
             if (!first)
@@ -43,6 +42,13 @@ internal static class Program
                     }
                 return;
             }
+            string install = Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory);
+            string fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(install.ToUpperInvariant())));
+            using var installLock = new Mutex(false, @"Local\CSharpBook.Install." + fingerprint);
+            try { installLock.WaitOne(); } catch (AbandonedMutexException) { }
+            ReleaseUpdate.Recover(install);
+            if (!File.Exists(Path.Combine(root, "index.html"))) throw new FileNotFoundException("Рядом с приложением должна быть распакованная папка wwwroot.");
+            if (args.Contains("--update-failed")) MessageBox.Show("Не удалось заменить файлы учебника. Предыдущая версия восстановлена.", "Обновление учебника");
             var server = BookServer.Create(root, DesktopPort, false);
             server.StartAsync().GetAwaiter().GetResult();
             try { using var window = new BookWindow(root, lan); Application.Run(window); }
@@ -65,6 +71,8 @@ internal static class Program
         private readonly string root;
         private WebApplication? phoneServer;
         private bool changing;
+        private readonly CancellationTokenSource closing = new();
+        private bool updating;
         public BookWindow(string root, bool startLan)
         {
             this.root=root;
@@ -81,6 +89,10 @@ internal static class Program
                     core.Settings.AreDefaultContextMenusEnabled=true;
                     core.NavigationStarting+=(_,e)=>{if(!Local(e.Uri) && e.Uri!="about:blank"){e.Cancel=true; OpenExternal(e.Uri);}};
                     core.NewWindowRequested+=(_,e)=>{e.Handled=true; OpenExternal(e.Uri);};
+                    core.NavigationCompleted+=async (_,e)=>{
+                        if(e.IsSuccess && Local(core.Source))
+                            await core.ExecuteScriptAsync("if(navigator.serviceWorker){navigator.serviceWorker.getRegistrations().then(async r=>{if(r.length){await Promise.all(r.map(w=>w.unregister()));location.reload()}})}");
+                    };
                     core.DownloadStarting+=(_,e)=>{
                         var name=Path.GetFileName(e.ResultFilePath);
                         using var picker=new SaveFileDialog { FileName=name, Filter="Архив ZIP (*.zip)|*.zip|Все файлы (*.*)|*.*" };
@@ -92,6 +104,7 @@ internal static class Program
                         if (!Local(e.Source)) return;
                         var command=e.TryGetWebMessageAsString();
                         if(command=="close"){Close();return;}
+                        if(command=="update-start"){await UpdateBook();return;}
                         if(command=="lan-on"||command=="lan-off") await SetPhoneAccess(command=="lan-on");
                         else if(command=="lan-info") SendPhoneInfo();
                     };
@@ -102,6 +115,45 @@ internal static class Program
             };
         }
         private static bool Local(string url) => Uri.TryCreate(url,UriKind.Absolute,out var u) && u.GetLeftPart(UriPartial.Authority)==LocalUrl;
+        private async Task UpdateBook()
+        {
+            if (updating) return;
+            updating = true;
+            string? stage = null;
+            void Status(string message, bool busy = true)
+            {
+                if (!closing.IsCancellationRequested)
+                    view.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { type="update", message, busy }));
+            }
+            try
+            {
+                Status("Проверяем последний выпуск…");
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(closing.Token);
+                timeout.CancelAfter(TimeSpan.FromMinutes(10));
+                var release = await ReleaseUpdate.Latest(timeout.Token);
+                if (release == null) { Status("У тебя последняя версия.", false); return; }
+                stage = ReleaseUpdate.CreateStage(AppContext.BaseDirectory);
+                string zip = Path.Combine(stage, "release.zip");
+                Status($"Скачиваем версию {release.Version}…");
+                await ReleaseUpdate.Download(release, zip, pct => Status($"Скачиваем версию {release.Version} · {pct}%"), timeout.Token);
+                Status("Проверяем файлы перед установкой…");
+                string destination = Path.Combine(stage, "new");
+                await Task.Run(() => ReleaseUpdate.Extract(zip, destination, release.Version), timeout.Token);
+                timeout.Token.ThrowIfCancellationRequested();
+                File.Delete(zip);
+                ReleaseUpdate.WriteHelper(stage);
+                using var helper = ReleaseUpdate.LaunchHelper(stage, recover: false);
+                stage = null; // The helper owns the prepared files after launch.
+                Status("Перезапускаем учебник…");
+                Close();
+            }
+            catch (Exception ex) { Status("Обновление не завершено. " + ex.GetBaseException().Message, false); }
+            finally
+            {
+                if (stage != null) { try { Directory.Delete(stage, true); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
+                updating = false;
+            }
+        }
         private static void OpenExternal(string url)
         {
             if(Uri.TryCreate(url,UriKind.Absolute,out var uri) && (uri.Scheme=="https"||uri.Scheme=="http"))
@@ -129,6 +181,7 @@ internal static class Program
             view.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new{type="phone",enabled=phoneServer!=null,urls=phoneServer!=null?Addresses():Array.Empty<string>(),error}));
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            closing.Cancel();
             if(phoneServer!=null) {phoneServer.StopAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult(); phoneServer.DisposeAsync().AsTask().GetAwaiter().GetResult();}
             base.OnFormClosed(e);
         }

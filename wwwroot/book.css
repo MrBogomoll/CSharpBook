@@ -33,7 +33,7 @@
 #book .cs-hero{position:relative;isolation:isolate;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,30%);align-items:center;gap:12px;padding:22px 24px;border-radius:13px;background:linear-gradient(109deg,var(--cs-hero) 20%,var(--cs-hero2));color:var(--cs-hero-ink)}
 #book .cs-hero::before{content:"";position:absolute;inset:0 0 0 63%;z-index:-1;opacity:.35;background-image:radial-gradient(var(--cs-dot) 1px,transparent 1px);background-size:10px 10px;mask-image:linear-gradient(to right,transparent,#000 40%)}
 #book .cs-kicker{font-size:11px;font-weight:650;letter-spacing:.065em;text-transform:uppercase;color:var(--cs-violet)}
-#book .cs-product h1{font-size:clamp(29px,5cqw,48px);font-weight:700;letter-spacing:-.055em;line-height:1.07;margin:9px 0}
+#book .cs-product h1{overflow-wrap:anywhere;font-size:clamp(29px,calc(var(--book-screen,100vw) * .05),48px);font-weight:700;letter-spacing:-.055em;line-height:1.07;margin:9px 0}
 #book .cs-lead{font-size:14px;line-height:1.5;max-width:52ch;text-wrap:pretty}
 #book .cs-diagram{justify-self:center;position:relative;display:flex;align-items:baseline;justify-content:center;gap:5px;transform:rotate(-4deg);border:1px solid light-dark(#b199cd,#8b729f);background:light-dark(#fbf8ff,#40364e);box-shadow:3px 4px 0 var(--cs-hero2),4px 5px 0 light-dark(#b199cd,#8b729f);border-radius:9px;padding:15px 12px 13px;white-space:nowrap}
 #book .cs-diagram span{display:grid;gap:6px;text-align:center}
@@ -74,16 +74,51 @@
 #book .cs-empty{padding:22px 0;color:var(--cs-weak)}
 #book .cs-note{margin-top:11px;color:var(--cs-weak);font-size:12px}#book .cs-note summary{width:fit-content;color:var(--cs-weak);padding:2px 0}#book .cs-note[open]{padding-bottom:4px}
 #book .cs-product [hidden]{display:none!important}
-@container csapp (min-width:1100px){#book .cs-content{padding:26px 34px}}
-@container csapp (max-width:800px){#book .cs-grid{grid-template-columns:166px minmax(0,1fr)}#book .cs-content{padding:16px}#book .cs-hero{padding:20px 17px}#book .cs-side{padding:18px 8px 12px}}
-@container csapp (max-width:680px){#book .cs-top{min-height:50px;padding:0 13px;justify-content:space-between}#book .cs-grid{display:block}#book .cs-content{padding:13px}#book .cs-side,#book .cs-global{display:none}#book .cs-side.open{display:flex;border-right:0;border-bottom:1px solid var(--cs-line);padding:14px 16px}#book .cs-side.open .cs-progress{display:none}#book .cs-hero{grid-template-columns:minmax(0,1fr);padding:18px}#book .cs-diagram{display:none}#book .cs-hero::before{inset:0 0 0 80%;opacity:.18}#book .cs-product h1{font-size:34px}#book .cs-product h2{font-size:20px}#book .cs-lead,#book .cs-product .cs-description{font-size:13px}#book .cs-kicker{font-size:10.5px}#book .cs-body{margin-top:16px}#book .cs-mobile-menu{display:flex;align-items:center;gap:5px;padding:9px!important;font-size:12px!important}#book .cs-mobile-nav{display:flex;justify-content:space-around;gap:2px;padding:5px;border-top:1px solid var(--cs-line);background:var(--cs-nav)}#book .cs-mobile-nav .cs-nav-item{flex-direction:column;gap:2px;font-size:11px;min-width:62px}#book .cs-actions-left .cs-tool{font-size:12px;padding:6px 8px}#book .cs-code-area{gap:10px}#book .cs-product .cs-code-area pre,#book .cs-product .cs-code-area code{font-size:12px}#book .cs-next-label{display:none}}
+/* Type and control sizes follow the window. Pane queries only rearrange content. */
+@container book-window (min-width:1100px) {
+  #book .cs-content {padding:26px 34px}
+}
+@container book-window (max-width:800px) {
+  #book .cs-content {padding:16px}
+  #book .cs-hero {padding:20px 17px}
+  #book .cs-side {padding:18px 8px 12px}
+}
+@container book-window (max-width:680px) {
+  #book .cs-top {min-height:50px;padding:0 13px;justify-content:space-between}
+  #book .cs-global {display:none}
+  #book .cs-content {padding:13px}
+  #book .cs-side.open {padding:14px 16px}
+  #book .cs-hero {padding:18px}
+  #book .cs-hero::before {inset:0 0 0 80%;opacity:.18}
+  #book .cs-product h1 {font-size:34px}
+  #book .cs-product h2 {font-size:20px}
+  #book .cs-lead,#book .cs-product .cs-description {font-size:13px}
+  #book .cs-kicker {font-size:10.5px}
+  #book .cs-body {margin-top:16px}
+  #book .cs-mobile-menu {display:flex;align-items:center;gap:5px;padding:9px!important;font-size:12px!important}
+  #book .cs-mobile-nav {display:flex;justify-content:space-around;gap:2px;padding:5px;border-top:1px solid var(--cs-line);background:var(--cs-nav)}
+  #book .cs-mobile-nav .cs-nav-item {flex-direction:column;gap:2px;font-size:11px;min-width:62px}
+  #book .cs-actions-left .cs-tool {font-size:12px;padding:6px 8px}
+  #book .cs-code-area {gap:10px}
+  #book .cs-product .cs-code-area pre,#book .cs-product .cs-code-area code {font-size:12px}
+  #book .cs-next-label {display:none}
+}
+@container csapp (max-width:800px) {
+  #book .cs-grid {grid-template-columns:166px minmax(0,1fr)}
+}
+@container csapp (max-width:680px) {
+  #book .cs-grid {display:block}
+  #book .cs-side,#book .cs-side.open .cs-progress,#book .cs-diagram {display:none}
+  #book .cs-side.open {display:flex;border-right:0;border-bottom:1px solid var(--cs-line)}
+  #book .cs-hero {grid-template-columns:minmax(0,1fr)}
+}
 @media(pointer:coarse){#book .cs-product button{min-height:44px}}
 #book .cs-home{padding:26px 28px 25px;min-width:0}
 #book .cs-home-intro{padding-bottom:18px;border-bottom:1px solid var(--cs-line);margin-bottom:20px}
-#book .cs-home-intro h1{font-size:clamp(31px,4.2cqw,45px);margin:0 0 6px;letter-spacing:-.055em}
+#book .cs-home-intro h1{font-size:clamp(31px,calc(var(--book-screen,100vw) * .042),45px);margin:0 0 6px;letter-spacing:-.055em}
 #book .cs-home-intro h1 span{color:var(--cs-violet)}
 #book .cs-home-intro p{color:var(--cs-weak);font-size:14px;max-width:66ch}
-#book .cs-home-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(210px,1fr);column-gap:22px;align-items:start}
+#book .cs-home-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(210px,1fr);gap:22px;align-items:start}
 #book .cs-toc{grid-column:1;grid-row:1;min-width:0}
 #book .cs-heading-row{display:flex;align-items:baseline;justify-content:space-between;gap:9px;flex-wrap:wrap;margin:0 0 10px}
 #book .cs-heading-row h2{font-size:20px}
@@ -128,13 +163,16 @@
 #book .cs-draft-label{display:block;font-size:12px;color:var(--cs-weak);margin:8px 0}
 #book .cs-draft{display:block;width:100%;max-width:100%;min-height:72px;margin-top:4px;padding:8px 10px;resize:vertical;color:var(--cs-ink);background:var(--cs-nav);border:1px solid var(--cs-line);border-radius:7px;font:14px/1.55 Consolas,monospace}
 #book .cs-answers .cs-tool{overflow-wrap:anywhere;max-width:100%;text-align:left}
-@container csapp (max-width:680px){
+@container csapp (max-width:680px) {
+  #book .cs-home-grid {display:flex;flex-direction:column}
+  #book .cs-progress-column,#book .cs-toc {width:100%}
+}
+@container book-window (max-width:680px){
   #book .cs-home{padding:16px 13px 12px}
   #book .cs-home-intro{border:0;padding:0;margin:0 0 12px}
   #book .cs-home-intro h1{font-size:31px}
   #book .cs-home-intro p{font-size:13px}
-  #book .cs-home-grid{display:flex;flex-direction:column;gap:16px}
-  #book .cs-progress-column,#book .cs-toc{width:100%}
+  #book .cs-home-grid{gap:16px}
   #book .cs-resume{padding:13px 15px}
   #book .cs-resume h2{font-size:20px;margin:6px 0 4px}
   #book .cs-resume-code{display:none}
@@ -146,6 +184,7 @@
 
 #book .cs-bm-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -154,7 +193,7 @@
   margin-bottom: 20px;
 }
 #book .cs-bm-header h1 {
-  font-size: clamp(31px, 4.2cqw, 45px);
+  font-size: clamp(31px, calc(var(--book-screen,100vw) * .042), 45px);
   margin: 0 0 5px;
 }
 #book .cs-bm-header p,
@@ -330,7 +369,10 @@
 #book .cs-bm-empty h2 { font-size: 18px; }
 #book .cs-bm-empty .cs-bm-contents { margin-left: -8px; }
 @container csapp (max-width: 680px) {
-  #book .cs-bm-layout { grid-template-columns: 1fr; gap: 16px; }
+  #book .cs-bm-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@container book-window (max-width: 680px) {
+  #book .cs-bm-layout { gap: 16px; }
   #book .cs-bm-header { margin-bottom: 14px; padding-bottom: 12px; }
   #book .cs-bm-header p { font-size: 12px; }
   #book .cs-bm-list { gap: 12px; }
@@ -339,15 +381,14 @@
   #book .cs-product .cs-bm-continue { margin-top: 9px; }
 }
 @container csapp (max-width: 460px) {
-  #book .cs-product .cs-bm-open {
-    grid-template-columns: minmax(0, 1fr) 14px;
-    gap: 2px 6px;
-    padding: 9px 8px 9px 11px;
-  }
-  #book .cs-bm-topic-desc { display: none; }
-  #book .cs-bm-status { grid-column: 1; grid-row: 2; }
-  #book .cs-bm-open > svg { grid-column: 2; grid-row: 1 / span 2; }
-  #book .cs-product .cs-bm-remove { width: 44px; }
+  #book .cs-product .cs-bm-open {grid-template-columns:minmax(0,1fr) 14px}
+  #book .cs-bm-status {grid-column:1;grid-row:2}
+  #book .cs-bm-open > svg {grid-column:2;grid-row:1 / span 2}
+}
+@container book-window (max-width: 460px) {
+  #book .cs-product .cs-bm-open {gap:2px 6px;padding:9px 8px 9px 11px}
+  #book .cs-bm-topic-desc {display:none}
+  #book .cs-product .cs-bm-remove {width:44px}
 }
 
 #book .bm-lesson-controls{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:13px}
@@ -363,12 +404,15 @@
 #book .bm-marks .bm-here,#book .bm-marks .bm-book{color:var(--cs-violet)}
 #book .bm-marks .bm-book svg{fill:currentColor}
 @container csapp (max-width:680px){
-  #book .cs-product .bm-topic{grid-template-columns:minmax(0,1fr) 15px;gap:1px 8px;padding:8px 12px}
+  #book .cs-product .bm-topic{grid-template-columns:minmax(0,1fr) 15px}
   #book .bm-topic-text{grid-column:1;grid-row:1}
   #book .bm-topic>svg{grid-column:2;grid-row:1 / span 2;align-self:center}
   #book .bm-topic .bm-marks{grid-column:1;grid-row:2;max-width:none;justify-content:flex-start}
-  #book .bm-marks:not(:empty){margin-top:3px}
   #book .bm-marks:empty{display:none}
+}
+@container book-window (max-width:680px){
+  #book .cs-product .bm-topic{gap:1px 8px;padding:8px 12px}
+  #book .bm-marks:not(:empty){margin-top:3px}
 }
 
 #book .cp-widget{margin:18px 0 8px}
@@ -383,4 +427,4 @@
 #book .cp-widget .cp-output{font:14px/1.55 Consolas,"Courier New",monospace;color:#b8e7c9;white-space:pre-wrap;overflow-wrap:anywhere;margin:2px 0}
 #book .cp-widget .cp-problem{color:#ffaab7}
 #book .cp-widget details .cs-snippet{font:13px/1.5 Consolas,monospace}
-@container csapp (max-width:500px){#book .cs-product .cp-run{min-height:44px}#book .cp-widget .cs-draft{font-size:16px}}
+@container book-window (max-width:500px){#book .cs-product .cp-run{min-height:44px}#book .cp-widget .cs-draft{font-size:16px}}

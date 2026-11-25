@@ -4,11 +4,11 @@ const packageCache = new Map();
 const moduleRoot = new URL('.',import.meta.url);
 // The shipped .NET 11 Mono binary uses standard WebAssembly exception references.
 // This is its SDK loader's try_table/exnref feature probe, independent of user-agent strings.
-function supportsExceptionReferences() {
+export function supportsExceptionReferences() {
   const probe=Uint8Array.from(atob('AGFzbQEAAAABBAFgAAADAgEAChABDgACaR9AAQMAAAsACxoL'),char=>char.charCodeAt(0));
   return typeof WebAssembly !== 'undefined' && WebAssembly.validate(probe);
 }
-function loadPackage(version) {
+export function loadPackage(version) {
   if (!packageCache.has(version)) {
     const request=fetch(new URL('runtime/net'+version+'.bin',moduleRoot),{credentials:'omit'}).then(response=>{
       if (!response.ok) throw new Error('Не удалось загрузить .NET '+version+' ('+response.status+').');

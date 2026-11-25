@@ -8,14 +8,22 @@ const coursePath = fileURLToPath(new URL('../wwwroot/course.json', import.meta.u
 const course = JSON.parse(readFileSync(coursePath, 'utf8'));
 const ids = new Set();
 const programs = [];
+function checkTheory(owner) {
+  if (!Array.isArray(owner.theory) || owner.theory.length < 2 ||
+      owner.theory.some(block => !block.title?.trim() || !block.text?.trim())) {
+    throw new Error('Incomplete theory: ' + owner.title);
+  }
+}
 for (const chapter of course) {
   if (!chapter.title || chapter.topics.length < 2) throw new Error('Incomplete chapter: ' + chapter.title);
+  checkTheory(chapter);
   for (const topic of chapter.topics) {
+    checkTheory(topic);
     if (!topic.id || ids.has(topic.id)) throw new Error('Invalid topic ID: ' + topic.id);
     ids.add(topic.id);
     if (!topic.title || !topic.intro || !topic.section || !topic.description ||
         topic.learn.length < 2 || !topic.mistake?.why || !topic.practice?.hint ||
-        !topic.practice.choices[topic.practice.correct] || !topic.task?.instruction ||
+        !topic.practice.choices[topic.practice.correct] || !Array.isArray(topic.exercises) ||
         !topic.source?.label || !topic.source?.url || topic.examples.length < 2) {
       throw new Error('Incomplete topic: ' + topic.id);
     }
@@ -23,11 +31,24 @@ for (const chapter of course) {
       if (!example.name || !example.steps?.length) throw new Error('No walkthrough: ' + topic.id);
       programs.push({ ...example, id: topic.id + '/' + (i + 1), version: example.version ?? topic.version ?? 10 });
     }
-    programs.push({ ...topic.task, id: topic.id + '/task', code: topic.task.solution, version: topic.version ?? 10 });
+    const tasks=topic.exercises, keys=new Set();
+    if(tasks.length<3||tasks.length>7||tasks[0].id!=='original')throw new Error('Invalid exercise count or legacy ID: '+topic.id);
+    for(const task of tasks){
+      if(!/^[a-z0-9-]+$/.test(task.id)||keys.has(task.id)||!task.title||!task.kind||!task.instruction||
+          !task.solution||typeof task.output!=='string'||(task.answerMode==='output'&&(!task.starter||!task.explanation))){
+        throw new Error('Incomplete exercise: '+topic.id+'/'+task.id);
+      }
+      keys.add(task.id);
+      programs.push({...task, id:topic.id+'/'+(task.id==='original'?'task':task.id), code:task.solution, version:task.version??topic.version??10});
+    }
   }
 }
 
 const extras = [
+  ['while-loop/2', [], 'Готово'],
+  ['while-loop/2', [''], 'Готово'],
+  ['do-while-loop/2', [], 'Введи да\nВвод закончился'],
+  ['do-while-loop/2', ['да'], 'Введи да\nПринято'],
   ['read-line/1', [''], 'Имя для бейджа?\n'],
   ['try-parse/2', ['1'], 'Шкафчик 1 найден.'],
   ['try-parse/2', ['20'], 'Шкафчик 20 найден.'],
@@ -147,7 +168,7 @@ async function verify(program, index, base) {
   await fs.writeFile(join(directory, 'Lesson.runtimeconfig.json'), JSON.stringify({
     runtimeOptions: { tfm: 'net' + version + '.0', framework: { name: 'Microsoft.NETCore.App', version: version + '.0.0' } }
   }));
-  const execution = await run([asm], directory, program.stdin ? program.stdin.join('\n') + '\n' : '');
+  const execution = await run([asm], directory, program.stdin?.length ? program.stdin.join('\n') + '\n' : '');
   const stdout = execution.stdout.replaceAll('\r\n', '\n').replace(/\n$/, '');
   if (execution.code !== 0 || stdout !== program.output) {
     throw new Error('Expected ' + JSON.stringify(program.output) + ', got ' + JSON.stringify(stdout) +
@@ -179,6 +200,6 @@ try {
   }
 }
 for (const problem of failures) process.stderr.write(problem + '\n');
-console.log(`${course.length} chapters, ${ids.size} topics. ${passed}/${programs.length} verified: ` +
+console.log(`${course.length} themes, ${ids.size} chapters. ${passed}/${programs.length} verified: ` +
   [...versions.values()].map(({sdk}) => sdk).join(', ') + '.');
 if (failures.length) process.exitCode = 1;

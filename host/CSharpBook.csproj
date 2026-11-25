@@ -8,10 +8,15 @@
     <AssemblyName>CSharpBook</AssemblyName>
     <Product>Учебник C#</Product>
     <ApplicationIcon>book.ico</ApplicationIcon>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
+    <InformationalVersion>0.2.0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
+    <FileVersion>0.2.0.0</FileVersion>
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="ApplyUpdate.ps1" LogicalName="CSharpBook.ApplyUpdate.ps1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4370.26" />
     <Compile Include="../runner/InputRoutes.cs" Link="InputRoutes.cs" />
     <Compile Include="../server/BookServer.cs" Link="BookServer.cs" />

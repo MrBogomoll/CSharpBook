@@ -13,6 +13,7 @@ public final class BookActivity extends Activity {
     private static final int SAVE_PROJECT = 45;
     private WebView web;
     private BookServer server;
+    private BookUpdater updater;
     private String pending, origin;
 
     @Override public void onCreate(Bundle state) {
@@ -41,6 +42,8 @@ public final class BookActivity extends Activity {
         setContentView(frame);
         systemBars();
         WebSettings settings = web.getSettings();
+        updater = new BookUpdater(this);
+        settings.setUserAgentString(settings.getUserAgentString() + " CSharpBookAndroid/1");
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
@@ -54,6 +57,13 @@ public final class BookActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 if (!request.isForMainFrame()) return false;
                 Uri uri = request.getUrl();
+                if ("csharpbook".equals(uri.getScheme())) {
+                    if ("csharpbook://update/start".equals(uri.toString()) && view.getUrl() != null && local(Uri.parse(view.getUrl()))) {
+                        if (request.hasGesture()) updater.start();
+                        else showUpdate("Нажми «Обновить версию» в настройках.",false);
+                    }
+                    return true;
+                }
                 if (local(uri)) {
                     if (archive(uri) != null) { export(uri); return true; }
                     return false;
@@ -67,6 +77,12 @@ public final class BookActivity extends Activity {
             @Override public void doUpdateVisitedHistory(WebView view,String url,boolean reload) {
                 Uri uri=Uri.parse(url);
                 if (local(uri) && "exit".equals(uri.getFragment())) view.post(() -> finish());
+            }
+            @Override public void onPageFinished(WebView view,String url) {
+                if (!local(Uri.parse(url))) return;
+                // Older app versions registered an offline worker even in the native reader.
+                view.evaluateJavascript("if(navigator.serviceWorker){navigator.serviceWorker.getRegistrations().then(async r=>{if(r.length){await Promise.all(r.map(w=>w.unregister()));location.reload()}})}", null);
+                updater.status();
             }
             @Override public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
                 if (!isFinishing()) recreate();
@@ -115,6 +131,10 @@ public final class BookActivity extends Activity {
     }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if (request == BookUpdater.INSTALL || request == BookUpdater.PERMISSION) {
+            if (updater != null) updater.result(request,result);
+            return;
+        }
         if (request != SAVE_PROJECT) return;
         String asset=pending; pending=null;
         if (result!=RESULT_OK || data==null || data.getData()==null || asset==null) return;
@@ -137,6 +157,11 @@ public final class BookActivity extends Activity {
         },"book-project-export").start();
     }
     private void toast(String text) { Toast.makeText(this,text,Toast.LENGTH_SHORT).show(); }
+    void showUpdate(String message, boolean busy) {
+        if (web == null || web.getUrl() == null || !local(Uri.parse(web.getUrl()))) return;
+        web.evaluateJavascript("window.dispatchEvent(new CustomEvent('book-native-update',{detail:{busy:" + busy +
+            ",message:" + org.json.JSONObject.quote(message) + "}}))", null);
+    }
     @Override public void onBackPressed() {
         if (web!=null && web.canGoBack()) web.goBack();
         else super.onBackPressed();

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InformationalVersion>0.1.0_b.1</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../host/ReleaseUpdate.cs" />
+    <EmbeddedResource Include="../../host/ApplyUpdate.ps1" LogicalName="CSharpBook.ApplyUpdate.ps1" />
+  </ItemGroup>
+</Project>

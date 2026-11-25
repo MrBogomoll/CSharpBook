@@ -1,3 +1,4 @@
+import {connectCompletions} from './completion.js';
 import {
   EditorState, EditorView, StateEffect, StateField, Decoration, lineNumbers,
   keymap, defaultKeymap, history, historyKeymap, StreamLanguage,
@@ -43,67 +44,23 @@ const marks = StateField.define({
   },
   provide: field => EditorView.decorations.from(field)
 });
-const methods = [
-  {name: 'WriteLine', detail: 'Вывести и перейти на новую строку'},
-  {name: 'Write', detail: 'Вывести и остаться на той же строке'},
-  {name: 'ReadLine', detail: 'Прочитать введённую строку'}
-];
 
-export function createCodeEditor(host, panel, file, source, onChange, onRun) {
+export function createCodeEditor(host, panel, file, source, onChange, onRun, project) {
   const documents = new Map();
   let name = file;
   let markKey = '';
-  const controller = new AbortController();
-  const listen = (element, type, fn) => element.addEventListener(type, fn, {signal: controller.signal});
-  function close() { panel.hidden = true; panel.replaceChildren(); }
-
-  function context() {
-    const {doc, selection} = view.state;
-    const {head, empty} = selection.main;
-    if (!empty) return null;
-    const line = doc.lineAt(head);
-    const left = doc.sliceString(line.from, head);
-    const match = /\bConsole\.([\w]*)$/.exec(left);
-    if (!match) return null;
-    const tag = syntaxTree(view.state).resolveInner(line.from + match.index + 1, 1).name;
-    if (/string|comment/i.test(tag)) return null;
-    const tail = /^\w*/.exec(doc.sliceString(head, line.to))[0];
-    return {from: head - match[1].length, to: head + tail.length, prefix: match[1]};
-  }
-  function suggest() {
-    if (!view.hasFocus) return close();
-    const spot = context();
-    const matches = spot ? methods.filter(method => method.name.startsWith(spot.prefix)) : [];
-    if (!matches.length) return close();
-    const label = document.createElement('span');
-    label.className = 'cx-method-label';
-    label.textContent = 'Методы Console';
-    panel.replaceChildren(label);
-    for (const {name, detail} of matches) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'cx-method';
-      button.dataset.method = name;
-      const code = document.createElement('code');
-      code.textContent = name;
-      const hint = document.createElement('small');
-      hint.textContent = detail;
-      button.append(code, hint);
-      panel.append(button);
-    }
-    panel.hidden = false;
-  }
+  let completions;
+  function close() {completions?.close();}
   function buildState(text) {
     return EditorState.create({doc: text, extensions: [
       lineNumbers(), history(), marks, language, syntaxHighlighting(colors),
       keymap.of([{key: 'Mod-Enter', run: () => { close(); onRun(); return true; }},
-        {key: 'Escape', run: () => { if (panel.hidden) return false; close(); return true; }},
         ...defaultKeymap, ...historyKeymap]),
       EditorView.contentAttributes.of({class: 'cx-input', 'aria-label': 'Код C#, ' + name,
         'aria-keyshortcuts': 'Control+Enter Meta+Enter', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: 'false'}),
       EditorView.updateListener.of(update => {
         if (update.docChanged) { markKey = ''; onChange(name, update.state.doc.toString()); }
-        if (update.docChanged || update.selectionSet) suggest();
+        if (update.docChanged || update.selectionSet) completions?.suggest();
       }),
       EditorState.phrases.of({'line number': 'Номер строки', 'Control character': 'Управляющий символ'})
     ]});
@@ -117,19 +74,10 @@ export function createCodeEditor(host, panel, file, source, onChange, onRun) {
     view.dispatch({changes: {from, to, insert: text}, selection: {anchor: caret}, scrollIntoView: true, userEvent: 'input.complete'});
     view.focus();
   }
-  listen(panel, 'pointerdown', event => { if (event.target.closest('button')) event.preventDefault(); });
-  listen(panel, 'click', event => {
-    const method = event.target.closest('[data-method]')?.dataset.method;
-    const spot = context();
-    if (!method || !spot) return close();
-    const opening = /^[ \t]*\(/.exec(view.state.doc.sliceString(spot.to));
-    const caret = spot.from + method.length + (opening ? opening[0].length : 1);
-    replace(spot.from, spot.to, method + (opening ? '' : '()'), caret);
-    close();
-  });
-  listen(host, 'focusout', event => { if (!panel.contains(event.relatedTarget)) close(); });
-  listen(panel, 'focusout', event => { if (!panel.contains(event.relatedTarget) && !host.contains(event.relatedTarget)) close(); });
-  listen(panel, 'keydown', event => { if (event.key === 'Escape') {view.focus(); close();} });
+  completions = connectCompletions(view.contentDOM,panel,() => ({
+    ...project(), text:view.state.doc.toString(), head:view.state.selection.main.head,
+    anchor:view.state.selection.main.anchor, fileName:name
+  }),replace);
 
   return {
     close, select, replace,
@@ -152,10 +100,10 @@ export function createCodeEditor(host, panel, file, source, onChange, onRun) {
         const tag = syntaxTree(view.state).resolveInner(match.index + 1, 1).name;
         if (/string|comment/i.test(tag)) continue;
         select(match.index + match[0].length);
-        suggest();
+        completions.suggest(true);
         return;
       }
     },
-    destroy() { controller.abort(); close(); documents.clear(); view.destroy(); }
+    destroy() { completions.destroy(); documents.clear(); view.destroy(); }
   };
 }

@@ -1,20 +1,18 @@
 'use strict';
 const root = document.getElementById('app');
-const store = new BookStore();
+const store = new PaneStore();
 let chapters = [], lessons = [];
-const state = {page:'home',lesson:'',example:0,read:[],saved:[],expanded:[0],started:false};
+const state = {page:'home',lesson:'',step:'',taskFile:'Program.cs',example:0,read:[],saved:[],expanded:[0],started:false};
 let feedback='', menuOpen=false, hideExampleOutput=false, selectedFile='Program.cs';
-let consoleCleanup=null, renderGeneration=0, exercise=null;
+let detachHints=null;
 let scrollTimer=null;
-let positionSavedForRoute=false;
+const pagePositions=new Map();
 if ('scrollRestoration' in history) history.scrollRestoration='manual';
 function keepReadingPosition() {
   clearTimeout(scrollTimer);
-  if (state.page==='lesson') store.set('position/'+state.lesson,Math.round(window.scrollY));
+  if(primary&&!primary.hidden&&readerKey&&!reader.hidden)store.set('position/'+positionKey(),Math.round(primary.scrollTop));
 }
-window.addEventListener('scroll',()=>{
-  if(state.page==='lesson'){clearTimeout(scrollTimer);scrollTimer=setTimeout(keepReadingPosition,400);}
-},{passive:true});
+function positionKey(){return readerKey.startsWith('lesson/')?readerKey.slice(7):readerKey;}
 window.addEventListener('pagehide',keepReadingPosition);
 const findLesson = id => lessons.find(lesson=>lesson.id===id);
 const chapterIndex = id => chapters.findIndex(chapter=>chapter.topics.some(topic=>topic.id===id));
@@ -46,145 +44,129 @@ function syncMarks() {
 }
 function settingsView() {
   const theme=store.get('theme','auto');
-  return '<main class="settings-view"><h1>Настройки</h1><p>Учебник C# · Версия 0.1.0</p><fieldset><legend>Оформление учебника</legend>'+
+  return '<main class="settings-view"><h1>Настройки</h1><p>Учебник C# · Версия 0.2.0</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
-    '</fieldset><h2>Мой прогресс</h2><p>Прочитано '+state.read.length+' из '+lessons.length+' тем. Закладки, место остановки и черновики сохраняются в этом браузере.</p>'+
+    '</fieldset><h2>Мой прогресс</h2><p>Прочитано '+state.read.length+' из '+lessons.length+' глав. Закладки, место остановки и черновики сохраняются в этом браузере.</p>'+
+    '<section id="book-updates"><h2>Обновление приложения</h2><button type="button" class="cs-tool" id="book-update-button">Обновить версию</button><p id="book-update-status" role="status" aria-live="polite"></p></section>'+
     (store.warning?'<p role="alert">'+esc(store.warning)+'</p>':'')+
     button('exit',icon('log-out')+'Выйти из приложения','cs-tool')+'</main>';
-}
-function exercisePanel(lesson,source) {
-  const task=lesson.task;
-  const extraFiles=Object.entries(task.files||{});
-  return '<section class="cp-widget" data-exercise="'+esc(lesson.id)+'"><h3>Напиши сам</h3><p>'+formatText(task.instruction)+'</p>'+
-    (task.stdin?.length?'<p>Для проверки введи по очереди '+task.stdin.map(x=>'<code>'+esc(x)+'</code>').join(', ')+'.</p>':'')+
-    (extraFiles.length?'<details><summary>Файлы, которые уже есть в задании</summary><p>Напиши свою часть в Program.cs. Эти файлы будут скомпилированы вместе с ней.</p>'+extraFiles.map(([name,code])=>'<strong>'+esc(name)+'</strong>'+copyable(code)).join('')+'</details>':'')+
-    '<label class="cs-draft-label">Твой код<textarea class="cs-draft" rows="5" placeholder="Введи здесь свой код на C#" spellcheck="false" autocorrect="off" autocapitalize="off" aria-keyshortcuts="Control+Enter Meta+Enter">'+esc(source)+'</textarea></label>'+
-    '<div class="cp-runbar">'+button('run-draft',icon('play')+'Запустить код','cp-run')+
-    button('stop-draft',icon('square')+'Остановить','cs-tool','hidden')+'</div><div class="cp-console"><strong>Результат запуска</strong>'+
-    '<div class="cp-response" role="status"><p class="cp-status">Здесь появится вывод твоей программы.</p></div><form class="cp-input" hidden><input aria-label="Ввод для программы" autocomplete="off" placeholder="Введи строку для программы"><button type="submit">Отправить</button></form></div>'+
-    '<details><summary>Сверить ожидаемый вывод</summary>'+copyable(task.output)+'</details><details><summary>Посмотреть решение</summary>'+copyable(task.solution)+'</details></section>';
-}
-function exercisePaint() {
-  if (!exercise || exercise.topic!==state.lesson) return;
-  const output=root.querySelector('.cp-response');
-  if (!output) return;
-  output.innerHTML=(exercise.output?'<pre class="cp-output">'+esc(exercise.output)+'</pre>':'')+'<p class="cp-status'+(exercise.error?' cp-problem':'')+'">'+esc(exercise.status)+'</p>';
-  root.querySelector('[data-action="run-draft"]').disabled=exercise.running;
-  root.querySelector('[data-action="stop-draft"]').hidden=!exercise.running;
-  root.querySelector('.cp-input').hidden=!exercise.awaiting;
-}
-function stopExercise() {
-  const previous=exercise;
-  exercise=null;
-  previous?.handle?.stop();
-}
-async function runExercise() {
-  if (exercise?.running) return;
-  const lesson=findLesson(state.lesson), source=root.querySelector('.cs-draft').value;
-  const run=exercise={topic:lesson.id,running:!!source.trim(),source,output:'',status:source.trim()?'Подготовка компилятора…':'Сначала введи команду в поле «Твой код».',error:false,awaiting:false};
-  exercisePaint();
-  if (!run.running) return;
-  try {
-    const {startRun}=await import('./runner.js');
-    if (exercise!==run || !run.running) return;
-    const handle=await startRun({source,version:lesson.task.version||lesson.version||10,files:lesson.task.files||{},onEvent(e) {
-      if (exercise!==run||!run.running) return;
-      if (e.type==='output') { run.output+=e.text||''; run.status='Программа выполняется…'; }
-      if (e.type==='ready') run.status='Программа выполняется…';
-      if (e.type==='input') {run.awaiting=true; run.status='Программа ждёт ввода.';}
-      if (e.type==='warning') run.output+=(e.text||'')+'\n';
-      if (e.type==='error') {run.error=true;run.status=[e.file,e.line?'строка '+e.line:'',e.code,e.text].filter(Boolean).join(' · ');}
-      if (e.type==='done') {
-        run.running=false;run.awaiting=false;
-        if (!run.error) {
-          const norm=s=>s.replace(/\r\n/g,'\n').replace(/\n$/,'');
-          run.status=norm(run.output)===norm(lesson.task.output)?'Вывод совпал с ожидаемым.':run.output?'Выполнено. Сверь результат с ожидаемым выводом.':'Программа завершилась без вывода.';
-        }
-      }
-      exercisePaint();
-      if (e.type==='input') root.querySelector('.cp-input input')?.focus({preventScroll:true});
-    }});
-    if (exercise!==run || (!run.running && !run.error)) handle?.stop(); else run.handle=handle;
-  } catch (e) { if (exercise===run) {run.running=false;run.error=true;run.status='Не удалось запустить код. '+e.message;exercisePaint();} }
 }
 function defaultEditor(lesson) {
   const example=lesson.examples[state.example];
   return {source:example.code,files:example.files||{},version:example.version||lesson.version||10,topicId:lesson.id,topicTitle:lesson.title,exampleTitle:example.name};
 }
-function useExample(restoreDraft=false) {
+function useExample(beside=false) {
   const lesson=findLesson(state.lesson), seed=defaultEditor(lesson), key='editor/'+lesson.id+'/'+state.example;
-  const draft=restoreDraft?store.get(key,null):null;
-  store.set('console',{...seed,...draft,key});
-  go('console');
+  if(beside)openBeside({...seed,key});else openConsoleEntry({...seed,key});
+}
+function go(page,id,step) {
+  keepReadingPosition();
+  const hash='#'+page+(id!=null?'/'+encodeURIComponent(id):'')+(step?'/'+encodeURIComponent(step):'');
+  if(location.hash!==hash) {
+    if(secondaryPane)history.replaceState(null,'',hash);else history.pushState(null,'',hash);
+  }
+  route();
 }
 function route() {
-  if(!positionSavedForRoute) keepReadingPosition();
-  positionSavedForRoute=false;
-  const [page,arg]=location.hash.slice(1).split('/');
-  const validLesson=page==='lesson' && findLesson(arg);
-  const destination=validLesson?'lesson':['console','settings','saved','exit'].includes(page)?page:'home';
-  if (destination==='lesson') {
-    if (state.lesson!==arg) {state.example=0;selectedFile='Program.cs';}
-    state.lesson=arg; state.started=true; store.set('last',arg);
-    state.example=Math.min(findLesson(arg).examples.length-1,store.get('example/'+arg,0));
+  if(!primary)return;
+  keepReadingPosition();noteMenu.hidden=true;selectionTool.hidden=true;
+  const [page,arg,stepId]=location.hash.slice(1).split('/');
+  const destination=page==='lesson'&&findLesson(arg)?'lesson':page==='chapter'&&/^\d+$/.test(arg)&&chapters[Number(arg)]?'chapter':
+    secondaryPane&&page==='choose'?'choose':(secondaryPane?['console','saved']:['console','settings','saved','exit']).includes(page)?page:'home';
+  const isReading=destination==='lesson'||destination==='chapter';
+  const step=destination==='lesson'?findLesson(arg).exercises.find(task=>task.id===stepId):null;
+  const key=isReading?destination+'/'+arg+(step?'/'+step.id:''):'', previous=state.page;
+  const changed=isReading&&key!==readerKey;
+  if(['home','saved','settings'].includes(previous))pagePositions.set(previous,primary.scrollTop);
+  if(changed){
+    detachHints?.();detachHints=null;
+    state.taskFile='Program.cs';
+    state.example=0;selectedFile='Program.cs';hideExampleOutput=false;feedback='';menuOpen=false;
   }
-  if (destination==='lesson' || destination==='home') {
-    const index=chapterIndex(state.lesson);
-    if (!state.expanded.includes(index)) state.expanded.push(index);
+  if(destination==='lesson'){
+    state.lesson=arg;state.step=step?.id||'';store.set('last',arg);
+    state.example=Math.max(0,Math.min(findLesson(arg).examples.length-1,store.get('example/'+arg,0)));
+    if(pendingNote)selectedFile=pendingNote.file||'Program.cs';
   }
-  state.page=destination; feedback='';menuOpen=false;hideExampleOutput=false;
-  const position=destination==='lesson'?store.get('position/'+state.lesson,0):0;
-  stopExercise(); render(position);
-  window.scrollTo(0,position);
+  if(isReading){
+    state.started=true;lastReading=key;store.set('last-reading',key);
+    const index=destination==='lesson'?chapterIndex(arg):Number(arg);
+    if(!state.expanded.includes(index))state.expanded.push(index);
+  }
+  state.page=destination;
+  if(destination==='exit'){split=false;for(const run of exerciseRuns.values())stopExercise(run);exerciseRuns.clear();for(const tab of consoleTabs.values())tab.cleanup?.();consoleTabs.clear();consolePages.replaceChildren();activeConsole='';}
+  render(changed||!!pendingNote);
+  if(isReading&&(changed||previous!==destination||pendingNote)){
+    primary.scrollTop=store.get('position/'+positionKey(),0);revealNote();
+  }else if(!isReading&&destination!=='console'&&destination!==previous)primary.scrollTop=pagePositions.get(destination)||0;
 }
-function go(page,id) {
-  keepReadingPosition();
-  positionSavedForRoute=true;
-  const hash='#'+page+(id?'/'+encodeURIComponent(id):'');
-  if (location.hash===hash) {route();return;}
-  location.hash=hash;
+function sidebar(){
+  return '<aside aria-label="Содержание" class="cs-side'+(menuOpen?' open':'')+'"><div class="cs-side-title">Содержание</div><div class="cs-sections">'+contents()+'</div><div class="cs-progress">Прочитано <strong>'+state.read.length+' из '+lessons.length+' глав</strong><div class="cs-progress-track"><i style="width:'+100*state.read.length/lessons.length+'%"></i></div></div></aside>';
 }
-function render(restorePosition=null) {
-  consoleCleanup?.();consoleCleanup=null;
-  const generation=++renderGeneration;
+function refreshMarks() {
+  const side=reader.querySelector('.cs-side');
+  if(side)side.outerHTML=sidebar();
+  if(readerKey.startsWith('lesson/')){
+    const id=readerKey.split('/')[1];
+    for(const [action,list,off,on,offIcon,onIcon] of [
+      ['read',state.read,'Отметить прочитанным','Прочитано','circle','circle-check'],
+      ['save',state.saved,'В закладки','В закладках','bookmark-plus','bookmark-check']
+    ]){
+      const control=reader.querySelector('[data-action="'+action+'"]');
+      if(!control)continue;
+      const marked=list.includes(id);
+      control.setAttribute('aria-pressed',String(marked));control.classList.toggle('on',marked);
+      control.innerHTML=icon(marked?onIcon:offIcon)+(marked?on:off);
+    }
+    const status=reader.querySelector('.bm-links [role=status]');if(status)status.textContent=feedback;
+  } else if(readerKey.startsWith('chapter/')){
+    const chapter=chapters[Number(readerKey.slice(8))];
+    for(const link of reader.querySelectorAll('.chapter-sequence [data-action]')){
+      const topic=chapter.topics.find(t=>'lesson:'+t.id===link.dataset.action);
+      if(topic)link.innerHTML=icon(state.read.includes(topic.id)?'circle-check':'circle')+esc(topic.title);
+    }
+  }
+  render();
+}
+function paintReader() {
   const lesson=findLesson(state.lesson);
-  document.title=({home:'C# с нуля',lesson:lesson.title,saved:'Закладки',console:'Консоль',settings:'Настройки',exit:'До встречи'})[state.page]+' · Учебник C#';
-  if(state.page==='exit') {
-    root.innerHTML='<main class="settings-view"><h1>До встречи!</h1><p>'+esc(store.warning||'Прогресс сохранён. Можно закрыть приложение.')+'</p>'+button('go:home',icon('book-open')+'Вернуться в учебник','cs-tool')+'</main>';
-    glyphs();return;
-  }
-  const header='<header class="cs-top">'+button('go:home','<span class="cs-logo" aria-hidden="true">C#</span>Учебник C#','cs-brand','aria-label="На главную"')+nav('cs-global')+
-    '<div class="header-tools">'+(state.page==='lesson'?button('menu',icon(menuOpen?'x':'menu')+'Главы','cs-mobile-menu','aria-expanded="'+menuOpen+'"'):'')+
-    button('go:settings',icon('settings'),'settings-icon'+(state.page==='settings'?' on':''),'aria-label="Настройки" title="Настройки"')+'</div></header>';
-  let body='';
-  if (state.page==='home') body='<main class="cs-home">'+homeView(lesson)+'</main>';
-  if (state.page==='saved') body='<main class="cs-home">'+bookmarkedPage(lesson)+'</main>';
-  if (state.page==='settings') body=settingsView();
-  if (state.page==='console') body='<main class="cs-console-page" id="editor-host" aria-label="Учебная консоль"></main>';
-  if (state.page==='lesson') {
-    const side='<aside aria-label="Содержание" class="cs-side'+(menuOpen?' open':'')+'"><div class="cs-side-title">Содержание</div><div class="cs-sections">'+contents()+'</div><div class="cs-progress">Прочитано <strong>'+state.read.length+' из '+lessons.length+' тем</strong><div class="cs-progress-track"><i style="width:'+100*state.read.length/lessons.length+'%"></i></div></div></aside>';
-    body='<div class="cs-grid">'+side+'<main class="cs-content">'+lessonView(lesson)+'</main></div>';
-  }
-  root.innerHTML=header+body+nav('cs-mobile-nav');
-  glyphs();exercisePaint();
-  const tour=root.querySelector('.project-tour');
-  if(tour) import('./project.js').then(async m=>{
-    if(!tour.isConnected)return;
-    const before=window.scrollY;
-    await m.showProject(tour,{esc,icon,copyable,glyphs});
-    if(tour.isConnected && restorePosition!==null && Math.abs(window.scrollY-before)<3) window.scrollTo(0,restorePosition);
+  const key=lastReading, same=readerKey===key;
+  const open=same?[...reader.querySelectorAll('details')].map(d=>d.open):[];
+  const task=activeTask();
+  detachHints?.();detachHints=null;
+  readerKey=key;
+  reader.innerHTML='<div class="cs-grid">'+sidebar()+'<main class="cs-content">'+(key.startsWith('chapter/')?chapterView(Number(key.slice(8))):stepStrip(lesson,state.step)+(task?exerciseView(lesson,task):lessonView(lesson)))+'</main></div>';
+  reader.querySelectorAll('details').forEach((d,i)=>{if(open[i])d.open=true;});
+  decoratePassages();
+  const area=reader.querySelector('.cs-draft');
+  if(area)import('./editor/completion.js').then(({attachLessonCompletions})=>{
+    if(area.isConnected)detachHints=attachLessonCompletions(area,{version:task.version||lesson.version||10,files:exerciseFiles(lesson,task),fileName:state.taskFile});
   });
-  if (state.page==='console') {
-    const host=root.querySelector('#editor-host');
-    const entry=store.get('console',defaultEditor(lesson));
-    import('./console.js').then(({mountConsole})=>{
-      if (generation!==renderGeneration) return;
-      consoleCleanup=mountConsole(host,{...entry,showHeader:false,onBack:()=>go('lesson',entry.topicId),onChange:(source,files)=>{
-        const draft={source,files};store.set('console',{...entry,...draft});if(entry.key)store.set(entry.key,draft);
-      }});
-      glyphs();
-    }).catch(e=>{if (generation===renderGeneration) host.textContent='Не удалось открыть редактор. '+e.message;});
+  const tour=reader.querySelector('.project-tour');
+  if(tour)import('./project.js').then(m=>{if(tour.isConnected)m.showProject(tour,{esc,icon,copyable,glyphs});});
+  showExerciseResult();
+}
+function render(forceReader=false) {
+  const lesson=findLesson(state.lesson), page=state.page;
+  const reading=page==='lesson'||page==='chapter', full=page==='console';
+  document.title=({home:'C# с нуля',lesson:lesson.title,chapter:readingChapter()?.title,saved:'Закладки',console:'Консоль',choose:'Вторая панель',settings:'Настройки',exit:'До встречи'})[page]+' · Учебник C#';
+  const splitLabel=split?'Скрыть вторую панель':'Разделить экран';
+  root.querySelector('#book-header').innerHTML=secondaryPane?secondaryHeader(reading):'<header class="cs-top">'+button('go:home','<span class="cs-logo" aria-hidden="true">C#</span>Учебник C#','cs-brand','aria-label="На главную"')+nav('cs-global')+
+    '<div class="header-tools">'+(reading?button('menu',icon(menuOpen?'x':'menu')+'Содержание','cs-mobile-menu','aria-expanded="'+menuOpen+'"'):'')+
+    button('dock',icon('columns-2'),'settings-icon'+(split?' on':''),'aria-label="'+splitLabel+'" title="'+splitLabel+'" aria-pressed="'+split+'"')+
+    button('go:settings',icon('settings'),'settings-icon'+(page==='settings'?' on':''),'aria-label="Настройки" title="Настройки"')+'</div></header>';
+  root.querySelector('#book-bottom').innerHTML=secondaryPane?'':nav('cs-mobile-nav');
+  if(!full){
+    reader.hidden=!reading;auxiliary.hidden=reading;
+    if(reading&&forceReader)paintReader();
+    if(page==='choose')auxiliary.innerHTML=choosePaneView();
+    if(page==='home')auxiliary.innerHTML='<main class="cs-home">'+homeView(lesson)+'</main>';
+    if(page==='saved')auxiliary.innerHTML='<main class="cs-home">'+bookmarkedPage(lesson)+'</main>';
+    if(page==='settings')auxiliary.innerHTML=settingsView();
+    if(page==='exit')auxiliary.innerHTML='<main class="settings-view"><h1>До встречи!</h1><p>'+esc(store.warning||'Прогресс сохранён. Можно закрыть приложение.')+'</p>'+button('go:home','Вернуться в учебник','cs-tool')+'</main>';
   }
+  root.querySelector('#book-header').hidden=page==='exit'||page==='choose';root.querySelector('#book-bottom').hidden=page==='exit'||secondaryPane;
+  paintWorkspace();glyphs();
 }
 async function copyText(text,trigger) {
   let ok=false;
@@ -199,23 +181,34 @@ root.addEventListener('click',e=>{
   if(!trigger || trigger.closest('#editor-host')) return;
   const [action,arg]=trigger.dataset.action.split(':');
   const lesson=findLesson(state.lesson), example=lesson.examples[state.example];
+  if(action==='step')return go('lesson',lesson.id,arg);
+  if(action==='task-file'){
+    const task=activeTask();if(!task)return;
+    const name=['Program.cs',...Object.keys(task.files||{})][Number(arg)];
+    if(name){state.taskFile=name;paintReader();glyphs();}
+    return;
+  }
+  if(action==='chapter') return go('chapter',arg);
+  if(action==='dock')return toggleDock();
+  if(action==='new-console')return newConsole();
   if(action==='lesson') return go('lesson',arg);
   if(action==='go') return go(arg);
-  if(action==='back') return go('lesson',state.lesson);
+  if(action==='back') return resumeReading();
   if(action==='open-example') return useExample();
-  if(action==='open-editor-draft') return useExample(true);
+  if(action==='open-editor-draft')return useExample();
+  if(action==='open-beside')return useExample(true);
   if(action==='run-draft') return runExercise();
-  if(action==='stop-draft') {if(exercise){exercise.running=false;exercise.awaiting=false;exercise.status='Запуск остановлен.';exercise.handle?.stop();exercisePaint();}return;}
+  if(action==='stop-draft')return stopExercise(exerciseRuns.get(readerKey));
   if(action==='copy') return copyText(selectedFile==='Program.cs'?example.code:example.files[selectedFile],trigger);
   if(action==='copy-block') return copyText(trigger.closest('.copyable').querySelector('pre').textContent,trigger);
   if(action==='exit') {
     keepReadingPosition();
-    stopExercise();
     history.replaceState(null,'','#exit');route();
     window.chrome?.webview?.postMessage('close');
     return;
   }
-  if(action==='menu') menuOpen=!menuOpen;
+  if(!['menu','expand','example','file','toggle-output','answer','save','read','unsave'].includes(action))return;
+  if(action==='menu'){menuOpen=!menuOpen;reader.querySelector('.cs-side')?.classList.toggle('open',menuOpen);render();return;}
   if(action==='expand') {state.expanded=flip(state.expanded,Number(arg));store.set('expanded',state.expanded);}
   if(action==='example') { state.example=Number(arg);selectedFile='Program.cs';store.set('example/'+lesson.id,state.example); }
   if(action==='file') selectedFile=['Program.cs',...Object.keys(example.files||{}).filter(x=>x!=='Program.cs')][Number(arg)]||'Program.cs';
@@ -225,36 +218,62 @@ root.addEventListener('click',e=>{
     const key=action==='read'?'read/':'saved/', id=arg||lesson.id;
     const marked=action==='unsave'?false:!store.get(key+id,false);
     store.set(key+id,marked);syncMarks();
-    feedback=action==='read'?(marked?'Тема отмечена как прочитанная.':'Отметка снята.'):(marked?'Тема сохранена в закладки.':'Закладка снята.');
+    feedback=action==='read'?(marked?'Глава отмечена как прочитанная.':'Отметка снята.'):(marked?'Глава сохранена в закладки.':'Закладка снята.');
   }
-  const opened=[...root.querySelectorAll('details')].map(d=>d.open);
-  render();
-  root.querySelectorAll('details').forEach((d,i)=>{d.open=Boolean(opened[i]);});
+  if(['read','save','unsave'].includes(action))refreshMarks();else render(['lesson','chapter'].includes(state.page));
   if(e.detail===0) [...root.querySelectorAll('[data-action]')].find(x=>x.dataset.action===trigger.dataset.action&&x.offsetWidth)?.focus({preventScroll:true});
 });
 root.addEventListener('change',e=>{if(e.target.name==='theme'){store.set('theme',e.target.value);applyTheme();}});
-root.addEventListener('input',e=>{if(e.target.matches('.cs-draft')){
-  store.set('draft/'+state.lesson,e.target.value);
-  if(exercise && !exercise.running && exercise.source!==e.target.value){exercise.status='Код изменён. Запусти его ещё раз.';exercisePaint();}
-}});
-root.addEventListener('keydown',e=>{if(e.target.matches('.cs-draft')&&(e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runExercise();}});
+root.addEventListener('input',e=>{
+  if(e.target.matches('.cp-input input')){
+    const run=exerciseRuns.get(readerKey);if(run)run.input=e.target.value;
+  }else if(e.target.matches('.cs-draft,.prediction-answer')){
+    const lesson=findLesson(state.lesson),task=activeTask();if(!task)return;
+    store.set(draftKey(lesson,task,task.answerMode==='output'?'Program.cs':state.taskFile),e.target.value);
+    const run=exerciseRuns.get(readerKey);
+    if(run&&!run.running){run.status='Ответ изменён. Проверь его ещё раз.';run.error=false;showExerciseResult();}
+  }
+});
+root.addEventListener('keydown',e=>{if(e.target.matches('.cs-draft,.prediction-answer')&&(e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runExercise();}});
 root.addEventListener('submit',e=>{
   if(!e.target.matches('.cp-input'))return;
-  e.preventDefault();if(!exercise?.awaiting)return;
-  const input=e.target.querySelector('input');exercise.awaiting=false;exercise.status='Программа выполняется…';exercise.handle?.sendInput(input.value);input.value='';exercisePaint();
+  e.preventDefault();const run=exerciseRuns.get(readerKey);
+  if(!run?.awaiting)return;
+  const input=e.target.querySelector('input');run.awaiting=false;run.status='Программа выполняется…';run.handle?.sendInput(input.value);run.input='';showExerciseResult();
 });
-window.addEventListener('book-storage',e=>{if(e.detail==='theme')applyTheme();if(/^(read|saved)\//.test(e.detail)){syncMarks();if(['home','saved'].includes(state.page))render();}});
+window.addEventListener('book-storage',e=>{if(e.detail==='theme')applyTheme();if(e.detail.startsWith('solved/'))refreshStepMarks();if(/^(read|saved)\//.test(e.detail)){syncMarks();refreshMarks();}if(e.detail.startsWith('note/')){decorateNoteMarks();if(state.page==='saved')render();else glyphs();}});
+function migrateLoopExample() {
+  if(store.get('migrated-loop-example',false))return;
+  const oldKey='editor/while-foreach/0', newKey='editor/while-loop/0', draft=store.get(oldKey,null);
+  if(draft){
+    if(!store.get(newKey,null))store.set(newKey,draft);
+    store.set(oldKey,null);
+  }
+  const previous=store.get('console',null), lesson=findLesson('while-loop');
+  if(previous?.key===oldKey&&lesson)store.set('console',{...previous,key:newKey,topicId:lesson.id,topicTitle:lesson.title,exampleTitle:lesson.examples[0].name});
+  store.set('migrated-loop-example',true);
+}
 async function boot() {
   const response=await fetch('./course.json');
   if(!response.ok)throw Error('Не удалось загрузить главы.');
   chapters=await response.json();lessons=chapters.flatMap(c=>c.topics);
-  await store.open();applyTheme();syncMarks();
-  const last=store.get('last','');
+  await store.open();
+  migrateLoopExample();
+  applyTheme();syncMarks();
+  const fallbackReading=secondaryPane?parent.lastPaneReading():'chapter/0';
+  const last=store.get('last',secondaryPane&&fallbackReading.startsWith('lesson/')?fallbackReading.split('/')[1]:'');
   state.started=!!findLesson(last);state.lesson=state.started?last:lessons[0].id;
   state.expanded=store.get('expanded',[chapterIndex(state.lesson)]).slice();
   if(location.hash==='#exit')history.replaceState(null,'','#home');
-  window.addEventListener('hashchange',route);route();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  lastReading=store.get('last-reading',secondaryPane?fallbackReading:state.started?'lesson/'+last:'chapter/0');
+  if(!(lastReading.startsWith('lesson/')&&findLesson(lastReading.split('/')[1])||/^chapter\/\d+$/.test(lastReading)&&chapters[Number(lastReading.slice(8))]))lastReading='chapter/0';
+  state.started=state.started||store.get('last-reading','')!=='';
+  if(!secondaryPane&&!location.hash&&store.get('split-open',false)){
+    history.replaceState(null,'','#'+store.get('active-route','home'));
+  }
+  createWorkspace();setupNotes();window.addEventListener('hashchange',route);route();
+  if(secondaryPane)parent.secondaryReady(window);
+  else if ('serviceWorker' in navigator && !window.chrome?.webview && !navigator.userAgent.includes('CSharpBookAndroid/')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 boot().catch(e=>{root.innerHTML='<main class="loading" role="alert"><h1>Учебник не открылся</h1><p>'+esc(e.message)+'</p><button onclick="location.reload()">Попробовать снова</button></main>';});
 

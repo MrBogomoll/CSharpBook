@@ -1,0 +1,78 @@
+html {scrollbar-gutter:auto}
+.book-viewport {width:100%;overflow:clip}
+.book-window {width:var(--book-screen,100vw);container:book-window / inline-size}
+#book .cs-product#app {width:100vw;height:100dvh;display:flex;flex-direction:column;padding-bottom:0}
+#book-workspace {flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+#book-left {display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);min-height:0;min-width:0;overflow:hidden}
+#book-primary,#book-console {min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain}
+#book-primary {container:csapp / inline-size}
+#book-workspace.is-split {grid-template-columns:minmax(0,var(--reader-size,50%)) 9px minmax(0,1fr)}
+#book-divider {cursor:col-resize;touch-action:none;background:var(--cs-nav);border-inline:1px solid var(--cs-line);position:relative}
+#book-divider::after {content:'';position:absolute;inset:calc(50% - 14px) 2px;background:var(--cs-weak);border-radius:4px}
+#book-divider:focus-visible {outline:2px solid var(--cs-violet);outline-offset:-2px}
+#book .cs-grid {min-height:100%}
+#book .cs-mobile-nav {position:static}
+#book-dock {min-width:0;min-height:0;overflow:hidden;background:var(--cs-surface)}
+#book-dock iframe {display:block;width:100%;height:100%;border:0}
+#book-workspace.resizing iframe {pointer-events:none}
+#book-console {display:flex;flex-direction:column;background:var(--cs-surface)}
+#editor-host {min-width:0;flex:1;overflow:auto}
+#editor-host>.cs-console-page {width:100%;min-width:0}
+.dock-toolbar,#dock-tabs,.dock-tab {display:flex;align-items:center;min-width:0}
+.dock-toolbar {flex-shrink:0;gap:4px;border-bottom:1px solid var(--cs-line);background:var(--cs-nav);padding:4px 10px}
+#dock-tabs {overflow:auto;gap:5px}
+.dock-tab {flex:none;border-radius:7px;border:1px solid var(--cs-line);overflow:hidden}
+#book .dock-tab button,#book .dock-icon {padding:5px 8px;font-size:12px}
+#book .dock-tab button:first-child {max-width:180px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+#book .dock-tab button[aria-pressed=true]{background:var(--cs-wash);color:var(--cs-violet)}
+#book .chapter-theory {max-width:76ch;margin:20px 0 26px}
+#book .chapter-theory h2{margin-top:20px}
+#book .chapter-theory p {white-space:pre-line;line-height:1.68;margin:7px 0 15px}
+#book .chapter-theory code {font:.94em Consolas,monospace;background:var(--cs-hover);padding:0 3px;border-radius:3px;overflow-wrap:anywhere}
+#book .cs-product .chapter-intro-link {display:flex;align-items:center;gap:8px;width:100%;padding:10px 16px;color:var(--cs-violet);border-top:1px solid var(--cs-line);border-radius:0}
+#book .chapter-sequence {margin:26px 0}
+#book .cs-editor-foot {flex-wrap:wrap}
+#book .cs-content [data-note-anchor]{position:relative}
+#book .cs-content button.passage-more {margin-inline-start:.45em;padding:1px 4px;vertical-align:middle;min-height:0;color:var(--cs-weak);opacity:0}
+#book .cs-content [data-note-anchor]:hover>.passage-more,#book .cs-content button.passage-more:focus-visible{opacity:1}
+.book-popup,.note-dialog,.selection-note {font:14px/1.5 "Segoe UI",sans-serif;color:var(--cs-ink);background:var(--cs-surface);border:1px solid var(--cs-line);border-radius:9px;box-shadow:0 8px 28px #0004}
+.book-popup {position:fixed;z-index:20;display:grid;padding:5px;max-width:96vw}
+.book-popup[hidden],.selection-note[hidden]{display:none}
+.book-popup button,.note-dialog button {font:inherit;color:inherit;background:transparent;border:0;text-align:left;padding:9px 12px;border-radius:5px}
+.book-popup button:is(:hover,:focus-visible),.note-dialog button:hover {background:var(--cs-wash)}
+.note-dialog {max-width:min(440px,88vw);width:100%;padding:20px}
+.note-dialog::backdrop {background:#16132188}
+.note-dialog h2 {margin:0}
+.note-dialog blockquote {margin:14px 0;padding-left:10px;border-left:3px solid var(--cs-violet);max-height:7em;overflow:auto;white-space:pre-wrap}
+.note-dialog textarea {width:100%;box-sizing:border-box;font:inherit;display:block;margin:4px 0 12px;padding:8px;background:var(--cs-nav);color:inherit;border:1px solid var(--cs-line);border-radius:5px}
+.note-dialog form>div {display:flex;justify-content:flex-end;gap:5px}
+.note-dialog button[type=submit],.selection-note {background:var(--cs-violet);color:var(--cs-surface)}
+.selection-note {position:fixed;z-index:10;right:15px;bottom:max(76px,env(safe-area-inset-bottom));padding:8px 12px}
+#book .notes-list li {display:flex;align-items:start;justify-content:space-between;border-bottom:1px solid var(--cs-line)}
+#book .notes-list .note-link {flex:1;display:grid;gap:4px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;min-width:0}
+#book .note-edit {padding:12px}
+#book .notes-list q {color:var(--cs-weak);max-height:5em;overflow:hidden}
+.note-flash {outline:2px solid var(--cs-violet);outline-offset:3px}
+@media(max-width:680px) and (orientation:portrait) {
+  #book-workspace.is-split {grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,var(--reader-size,50%)) 12px minmax(0,1fr)}
+  #book-divider {cursor:row-resize;border-inline:0;border-block:1px solid var(--cs-line)}
+  #book-divider::after {inset:3px calc(50% - 18px)}
+}
+@media(pointer:coarse) {
+  #book .cs-content button.passage-more {opacity:1;min-width:32px;min-height:32px}
+  #book .dock-toolbar button {min-height:36px}
+}
+#book.has-dock .cs-mobile-menu,#book .has-dock .cs-mobile-menu {display:flex;align-items:center;gap:4px;padding:7px}
+
+
+#book .cs-content button.passage-notes {vertical-align:middle;padding:2px 5px;color:var(--cs-violet);min-height:0}
+
+#book .pane-choice {display:grid;gap:8px;max-width:420px;padding:20px;margin:auto}
+#book .pane-choice h2 {margin:0 0 6px}
+#book .cs-product .pane-choice .cs-tool {justify-content:flex-start}
+#book .pane-header {display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:5px 10px;background:var(--cs-nav);border-bottom:1px solid var(--cs-line)}
+#book .pane-header select {max-width:100%;font:inherit;color:var(--cs-ink);background:var(--cs-surface);border:1px solid var(--cs-line);border-radius:7px;padding:5px 8px}
+#book .pane-header .pane-chapters {display:none}
+@container csapp (max-width:680px) {
+  #book .pane-header .pane-chapters {display:inline-flex;align-items:center;gap:5px;padding:5px}
+}

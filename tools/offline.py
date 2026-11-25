@@ -16,5 +16,5 @@ worker = (web / 'sw.js').read_text(encoding='utf-8')
 digest.update(worker.split('\n', 1)[1].encode())
 version = digest.hexdigest()[:16]
 (web / 'offline.json').write_text(json.dumps(files,ensure_ascii=False),encoding='utf-8')
-(web / 'sw.js').write_text("const BOOK_CACHE='csharp-book-" + version + "';\n" + worker.split('\n',1)[1],encoding='utf-8')
+(web / 'sw.js').write_text("const BOOK_CACHE='csharp-book-" + version + "';\n" + worker.split('\n',1)[1],encoding='utf-8',newline='\n')
 

@@ -17,7 +17,7 @@
 :is(#book,:root) .cx-console .cx-content{padding:23px 24px}
 :is(#book,:root) .cx-console .cx-head{display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 :is(#book,:root) .cx-console .cx-crumb,:is(#book,:root) .cx-console .cx-label{color:var(--violet);font-size:11px;font-weight:650;letter-spacing:.065em;text-transform:uppercase}
-:is(#book,:root) .cx-console .cx-product h1{font:700 clamp(30px,4.6cqw,43px)/1.1 Inter,"Segoe UI",Arial,sans-serif;letter-spacing:-.052em;margin:4px 0}
+:is(#book,:root) .cx-console .cx-product h1{font:700 clamp(30px,calc(var(--book-screen,100vw) * .046),43px)/1.1 Inter,"Segoe UI",Arial,sans-serif;letter-spacing:-.052em;margin:4px 0}
 :is(#book,:root) .cx-console .cx-description{color:var(--sub)!important;font-size:13px}
 :is(#book,:root) .cx-console .cx-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(215px,1fr);border-radius:11px;overflow:hidden;border:1px solid #393544;background:#20202a;align-items:stretch}
 :is(#book,:root) .cx-console .cx-editor,:is(#book,:root) .cx-console .cx-terminal{min-width:0}
@@ -63,11 +63,13 @@
 :is(#book,:root) .cx-console .cx-product .cx-method:hover,:is(#book,:root) .cx-console .cx-product .cx-method[aria-selected=true]{background:#494053}
 :is(#book,:root) .cx-console .cx-product code{font-family:Consolas,monospace}
 @container cxapp (max-width:650px){
+  :is(#book,:root) .cx-console .cx-grid{grid-template-columns:minmax(0,1fr)}
+  :is(#book,:root) .cx-console .cx-terminal{border-left:0;border-top:1px solid #494252}
+}
+@container book-window (max-width:650px){
   :is(#book,:root) .cx-console .cx-content{padding:15px 12px}
   :is(#book,:root) .cx-console .cx-bar{padding:8px 10px}:is(#book,:root) .cx-console .cx-brand{font-size:15px}
   :is(#book,:root) .cx-console .cx-head{margin-bottom:12px}:is(#book,:root) .cx-console .cx-product h1{font-size:32px}
-  :is(#book,:root) .cx-console .cx-grid{grid-template-columns:minmax(0,1fr)}
-  :is(#book,:root) .cx-console .cx-terminal{border-left:0;border-top:1px solid #494252}
   :is(#book,:root) .cx-console .cx-filebar,:is(#book,:root) .cx-console .cx-termbar{height:35px}
   :is(#book,:root) .cx-console .cx-result{padding:10px 12px;min-height:65px}
   :is(#book,:root) .cx-console .cx-tutor{padding:11px;gap:6px}
@@ -101,7 +103,7 @@
 :is(#book,:root) .cx-console .cm-line.bad{background:#56303d;box-shadow:inset 3px 0 #f3899d}
 :is(#book,:root) .cx-console .cm-line.mark{background:#323041;box-shadow:inset 3px 0 #ae94d9}
 :is(#book,:root) .cx-console .cx-crumb{overflow-wrap:anywhere}
-@container cxapp (max-width:650px){
+@container book-window (max-width:650px){
   :is(#book,:root) .cx-console .cx-codeview{--type:13px;--row:23px;--height:calc(var(--cx-lines,5) * var(--row) + 24px)}
   :is(#book,:root) .cx-console .cm-content{padding:12px 0}
   :is(#book,:root) .cx-console .cm-lineNumbers .cm-gutterElement{min-width:24px}
@@ -117,3 +119,15 @@
 :is(#book,:root) .cx-console .cx-original{margin:4px 0;color:#c9bfce;font-size:12px}
 :is(#book,:root) .cx-console .cx-original summary{cursor:pointer}
 :is(#book,:root) .cx-console .cx-original p{padding:3px 0}
+
+/* Both editors use the same list and keep keyboard focus in the code. */
+.cx-method-list{position:relative;max-height:min(205px,28vh);overflow:auto;overscroll-behavior:contain;touch-action:pan-y}
+.cx-exercise-completions{margin:4px 0 10px;border:1px solid #635675;border-radius:7px;overflow:hidden;color:#eee9f2;background:#302c3b;text-align:left}
+.cx-exercise-completions[hidden]{display:none}
+.cx-exercise-completions .cx-method-label{padding:5px 9px;background:#3d354a;color:#decdea;font:12px/1.4 "Segoe UI",sans-serif}
+.cx-exercise-completions button.cx-method{width:100%;display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap;border:0;border-bottom:1px solid #443d50;border-radius:0;padding:6px 9px;background:transparent;color:#eee9f2;text-align:left}
+.cx-exercise-completions .cx-method code{color:#e4d79d}
+.cx-exercise-completions .cx-method small{color:#c9c0d5}
+.cx-exercise-completions .cx-method[aria-selected=true],.cx-exercise-completions .cx-method:hover{background:#494053}
+.cx-completions .cx-method small{overflow-wrap:anywhere}
+@media (pointer:coarse){.cx-completions .cx-method-list button.cx-method{min-height:44px}}

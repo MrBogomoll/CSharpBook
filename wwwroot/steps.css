@@ -1,0 +1,28 @@
+#book .study-steps {
+  display:flex;align-items:center;flex-wrap:wrap;gap:5px;
+  padding:0 0 14px;margin:0 0 14px;border-bottom:1px solid var(--cs-line);
+}
+#book .step-divider {width:1px;height:20px;background:var(--cs-line);margin:0 4px}
+#book .step-label,#book .chapter-task-count {color:var(--cs-weak);font-size:12px}
+#book .step-label {margin-right:3px}
+#book .cs-product .study-step {position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-width:38px;min-height:36px;padding:0 8px;background:var(--cs-nav);border:1px solid var(--cs-line);
+  font-size:14px;font-weight:600;color:var(--cs-weak);border-radius:7px}
+#book .cs-product .study-step.solved {color:light-dark(#236048,#a3dbbc)}
+#book .cs-product .study-step.solved svg {width:13px;height:13px}
+#book .cs-product .study-step[aria-current=step] {background:var(--cs-wash);border-color:var(--cs-violet);color:var(--cs-violet)}
+#book .chapter-task-count {display:block;margin-top:3px}
+#book .cp-widget .practice-instruction {margin:0 0 15px;line-height:1.6}
+#book .practice-files {display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+#book .practice-files button[aria-pressed=true] {background:var(--cs-wash);color:var(--cs-violet)}
+#book .cp-widget .practice-source {padding:14px;background:#23232f;color:#f4eff9;border-radius:8px;overflow:auto;margin:12px 0}
+#book .cp-widget .practice-source code {background:transparent;color:inherit;white-space:pre;font:14px/1.6 Consolas,monospace}
+#book .prediction-answer {display:block;box-sizing:border-box;width:100%;min-height:76px;padding:10px 12px;border-radius:7px;border:1px solid var(--cs-line);
+  color:var(--cs-ink);background:var(--cs-nav);font:14px/1.55 Consolas,monospace;resize:vertical}
+@container csapp (max-width:560px) {
+  #book .step-label {display:none}
+}
+@media(pointer:coarse) {
+  #book .cs-product .study-step {min-height:44px;min-width:44px}
+  #book .prediction-answer {font-size:16px}
+}

@@ -22,6 +22,6 @@ if(desktopBridge){
     }
   };
   desktopBridge.addEventListener('message',e=>{if(e.data.type==='phone'){phone=e.data;phoneBlock();}});
-  new MutationObserver(()=>{if(document.querySelector('.settings-view [data-action="exit"]')&&!document.querySelector('.phone-access')){phoneBlock();desktopBridge.postMessage('lan-info');}}).observe(document.getElementById('app'),{childList:true});
+  new MutationObserver(()=>{if(document.querySelector('.settings-view [data-action="exit"]')&&!document.querySelector('.settings-view .phone-access')){phoneBlock();desktopBridge.postMessage('lan-info');}}).observe(document.getElementById('app'),{childList:true,subtree:true});
 }
 

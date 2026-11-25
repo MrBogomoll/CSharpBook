@@ -36,8 +36,7 @@ public static partial class StudentHost
         }).ToArray();
     }
 
-    [JSExport]
-    public static async Task Run(string source, string filesJson)
+    private static CSharpCompilation Project(string source, string filesJson)
     {
 #if NET11_0_OR_GREATER
         var language = LanguageVersion.CSharp15;
@@ -53,8 +52,14 @@ public static partial class StudentHost
         foreach (var file in files.RootElement.EnumerateObject())
             if (!file.Name.Equals("Program.cs", StringComparison.OrdinalIgnoreCase))
                 trees.Add(CSharpSyntaxTree.ParseText(file.Value.GetString()!, options, file.Name, Encoding.UTF8));
-        var compilation = CSharpCompilation.Create("StudentProgram", trees, References.Value,
+        return CSharpCompilation.Create("StudentProgram", trees, References.Value,
             new CSharpCompilationOptions(OutputKind.ConsoleApplication, optimizationLevel:OptimizationLevel.Debug, concurrentBuild:false));
+    }
+
+    [JSExport]
+    public static async Task Run(string source, string filesJson)
+    {
+        var compilation = Project(source, filesJson);
         using var pe = new MemoryStream();
         var result = compilation.Emit(pe);
         foreach (var item in result.Diagnostics.Where(item => item.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning).Take(40)) {

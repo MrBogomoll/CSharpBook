@@ -1,3 +1,4 @@
+import {releaseCompletionEngine} from './editor/completion.js';
 import {startRun} from './runner.js';
 import {createCodeEditor} from './editor/code-editor.js';
 
@@ -15,6 +16,7 @@ const statuses = {
   stopped: ['Остановлено','square'], stale: ['Код изменён','pencil']
 };
 const hints = {
+  CS0246: 'Проверь имя типа и регистр букв. Для типа из библиотеки может понадобиться директива using с именем пространства имён.',
   CS1002: 'Команда в C# заканчивается точкой с запятой. Добавь ; в отмеченном месте.',
   CS0103: 'Сверь имя с объявлением. C# различает большие и маленькие буквы.',
   CS0029: 'Сравни тип переменной с типом присваиваемого значения.',
@@ -25,6 +27,7 @@ const hints = {
   CS1010: 'Проверь закрывающие кавычки на отмеченной строке.'
 };
 const explanations = {
+  CS0246: 'Компилятор не нашёл тип или пространство имён с таким названием.',
   CS1002: 'В этом месте нужна точка с запятой.',
   CS0103: 'C# не нашёл объявление этого имени.',
   CS0029: 'Значение нельзя автоматически преобразовать в нужный тип.',
@@ -55,7 +58,18 @@ function terminator(code) {
   return last.index + last[0].search(/;[ \t]*(?:\/\/[^\n]*)?$/);
 }
 
-export function mountConsole(container, {
+export function mountConsole(container, options = {}) {
+  let dispose = mountConsolePage(container,options);
+  function cleanup() { dispose?.(); dispose = null; }
+  cleanup.openExample = example => {
+    cleanup();
+    dispose = mountConsolePage(container,{onBack:options.onBack, onChange:options.onChange, showHeader:options.showHeader, ...example});
+    return cleanup;
+  };
+  return cleanup;
+}
+
+function mountConsolePage(container, {
   source = '', version = 10, files = {}, topicTitle = '', exampleTitle = '',
   onBack, onChange, showHeader = true
 } = {}) {
@@ -99,7 +113,7 @@ export function mountConsole(container, {
     resetCopyButton();
     onChange?.(codeFiles.get(mainFile), extraFiles());
     scheduleRefresh();
-  }, run);
+  }, run, () => ({version:Number(version), files:Object.fromEntries(codeFiles)}));
   const fresh = () => snapshot && [...codeFiles].every(([name,text]) => snapshot.get(name) === text);
   function drawFiles() {
     if (codeFiles.size === 1) {
@@ -201,7 +215,9 @@ export function mountConsole(container, {
     const fixable = first && first.code === 'CS1002' && position(first);
     let content;
     if (first) {
-      const advice = hints[first.code] || first.hint || (position(first)
+      const advice = first.code === 'CS0246' && /'war'/.test(first.text)
+        ? 'Замени war на var. В записи var a = 0; компилятор определит тип int по числу 0.'
+        : hints[first.code] || first.hint || (position(first)
         ? 'Открой указанную строку. Проверь написание имён, типы значений и парные скобки, затем запусти код ещё раз.'
         : 'Прочитай сообщение в результате запуска. После исправления причины запусти программу ещё раз.');
       content = '<div class="cx-tutor error">' + icon('triangle-alert') + '<div><h2>Как исправить</h2><p>' +
@@ -235,7 +251,7 @@ export function mountConsole(container, {
     }
     renderOutput();
     refresh();
-    if (phase === 'input' && (document.activeElement === document.body || page.contains(document.activeElement)) && !host.contains(document.activeElement)) lineInput.focus({preventScroll:true});
+    if (phase === 'input' && document.hasFocus() && page.getClientRects().length && (document.activeElement === document.body || page.contains(document.activeElement)) && !host.contains(document.activeElement)) lineInput.focus({preventScroll:true});
   }
   async function run() {
     if (busy || signal.aborted) return;
@@ -243,7 +259,7 @@ export function mountConsole(container, {
     busy = true; phase = 'loading'; errors = []; output = ''; expanded = false;
     snapshot = new Map(codeFiles);
     lineInput.value = '';
-    editor.close(); renderOutput(); refresh();
+    editor.close(); releaseCompletionEngine(); renderOutput(); refresh();
     try {
       const handle = await startRun({source:snapshot.get(mainFile), version, files:extraFiles(), onEvent:event => receive(id,event)});
       if (serial !== id || signal.aborted) { handle?.stop(); return; }

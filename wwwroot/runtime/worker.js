@@ -82,7 +82,22 @@ export function workerMain() {
       }});
       const exported=await host.getAssemblyExports('StudentRunner.dll');
       emit({type:'ready'});
-      await exported.StudentHost.Run(source,JSON.stringify(files));
+      if (data.analyze) {
+        const port = ports[0];
+        port.onmessage = ({data: request}) => {
+          const {id, source, files, fileName, position} = request;
+          try {
+            const rows = exported.StudentHost.Complete(source, JSON.stringify(files), fileName, position);
+            emit({type:'symbols', id, rows:JSON.parse(rows)});
+          } catch (error) {
+            emit({type:'analysisError', id, text:String(error?.message || error)});
+          }
+        };
+        // The editor owns this long-lived, analysis-only worker and terminates it when idle.
+        await new Promise(() => {});
+      } else {
+        await exported.StudentHost.Run(source,JSON.stringify(files));
+      }
     } catch (error) {
       flush(); emit({type:'error',text:String(error?.message || error),detail:String(error?.stack || '')});
     } finally {
