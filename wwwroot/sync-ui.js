@@ -7,8 +7,9 @@ function showValue(value) {
   if (value === null) return 'Удалено';
   if (typeof value === 'string') return value;
   if (typeof value?.source === 'string') {
-    return Object.entries({'Program.cs': value.source, ...value.files})
-      .map(([name, source]) => name + '\n' + source).join('\n\n');
+    const files = Object.entries({'Program.cs': value.source, ...value.files})
+      .map(([name, source]) => name + '\n' + source);
+    return [value.title, ...files].filter(Boolean).join('\n\n');
   }
   if (typeof value?.body === 'string') return [value.quote, value.body].filter(Boolean).join('\n\n');
   return JSON.stringify(value, null, 2);

@@ -11,7 +11,7 @@ class PaneStore extends BookStore {
 }
 let primary, reader, auxiliary, workspace, dock, divider, dockTabs, consolePages, consolePanel;
 let contentsPanel;
-let secondaryFrame, readyFrame, pendingExample, storedPrograms;
+let secondaryFrame, readyFrame, pendingExample, draftManager;
 let split=false, activeConsole='', lastReading='', readerKey='';
 const consoleTabs=new Map();
 const stackMedia=matchMedia('(max-width: 680px) and (orientation: portrait)');
@@ -35,8 +35,7 @@ function createWorkspace() {
   }
   root.innerHTML='<div id="book-header"></div><nav id="book-contents" aria-label="Содержание" hidden></nav><div id="book-workspace"><div id="book-left"><div id="book-primary"><div id="reader-view" hidden></div><div id="aux-view"></div></div>'+
     '<section id="book-console" aria-label="Консоль" hidden><div class="dock-toolbar"><div id="dock-tabs" aria-label="Открытые программы"></div>'+
-    '<label class="dock-picker" title="Открыть сохранённую программу" hidden>'+icon('folder-open')+
-    '<select id="stored-programs" aria-label="Открыть сохранённую программу"></select></label>'+
+    '<button type="button" id="stored-programs" class="dock-icon" aria-label="Черновики программ" title="Черновики программ" aria-haspopup="dialog">'+icon('folder-open')+'</button>'+
     button('new-console',icon('plus'),'dock-icon','aria-label="Новая консоль" title="Новая консоль"')+'</div><div id="editor-host"></div></section></div>'+
     '<div id="book-divider" role="separator" tabindex="0" aria-label="Размер панелей" aria-controls="book-left book-dock" aria-valuemin="25" aria-valuemax="75" hidden></div>'+
     '<section id="book-dock" aria-label="Вторая панель" hidden></section></div><div id="book-bottom"></div><span id="book-copy-status" role="status" aria-live="polite"></span>';
@@ -56,19 +55,10 @@ function createWorkspace() {
   consolePanel=root.querySelector('#book-console');
   dockTabs=root.querySelector('#dock-tabs');consolePages=root.querySelector('#editor-host');
   new ResizeObserver(revealActiveConsoleTab).observe(dockTabs);
-  storedPrograms=root.querySelector('#stored-programs');
-  storedPrograms.onchange=()=>{
-    const key=storedPrograms.value;
-    const saved=store.values.get(key);
-    if(saved){
-      const unscoped=key.replace(/^secondary\//,'');
-      const lesson=findLesson(unscoped.split('/')[1]);
-      addConsole({...saved, key:unscoped, storageKey:key, version:lesson?.version||10, topicId:lesson?.id,
-        topicTitle:lesson?.title||'',exampleTitle:describeSyncKey(key)});
-      consoleTabs.get(activeConsole).group.firstElementChild.focus({preventScroll:true});
-    }
-    storedPrograms.selectedIndex=0;
-  };
+  draftManager=createDraftManager(root.querySelector('#stored-programs'),{
+    list:listConsoleDrafts, rename:renameConsoleDraft, open:openConsoleDraft,
+    save:moveConsoleToDrafts, remove:removeConsoleDraft
+  });
   primary.addEventListener('scroll',()=>{
     clearTimeout(scrollTimer);
     scrollTimer=setTimeout(keepReadingPosition,250);
@@ -112,32 +102,119 @@ function createWorkspace() {
     if(delta){event.preventDefault();resize(Number(divider.getAttribute('aria-valuenow'))+delta,true);}
   });
 }
-function refreshStoredPrograms() {
-  const drafts=[...store.values].filter(([key,value])=>
-    /^(secondary\/)?(editor|scratch|snippet)\//.test(key) && typeof value?.source==='string' &&
-    ![...consoleTabs.values()].some(tab=>(tab.entry.storageKey||store.scoped(tab.entry.key))===key));
-  storedPrograms.parentElement.hidden=!drafts.length;
-  const heading=new Option('Сохранённые программы','');
-  heading.disabled=true;
-  storedPrograms.replaceChildren(heading);
-  for(const [key] of drafts){
-    const label=describeSyncKey(key)+(key.startsWith('secondary/')?' · Вторая панель':'');
-    storedPrograms.add(new Option(label,key));
+function consoleDrafts() {
+  return [...store.values].filter(([key,value])=>
+    /^(secondary\/)?(editor|scratch|snippet)\//.test(key) && typeof value?.source==='string');
+}
+function openProgramNames() {
+  return [...consoleTabs.values()].map(({entry})=>({key:entry.storageKey,name:entry.title||entry.exampleTitle}));
+}
+function listConsoleDrafts() {
+  const tabs=openProgramNames(), openKeys=new Set(tabs.map(item=>item.key));
+  const drafts=consoleDrafts().filter(([key])=>!openKeys.has(key)).map(([key,value])=>({
+    key,name:value.title||describeSyncKey(key),pane:key.startsWith('secondary/')?'Вторая панель':''
+  }));
+  const activeKey=consoleTabs.get(activeConsole)?.entry.storageKey;
+  return {active:tabs.find(tab=>tab.key===activeKey)||null,drafts};
+}
+function occupiedProgramNames(exceptKey) {
+  const names=new Set();
+  const include=(key,name)=>{if(key!==exceptKey && name)names.add(name.toLocaleLowerCase('ru'));};
+  for(const [key,value] of consoleDrafts())include(key,value.title||describeSyncKey(key));
+  for(const {key,name} of openProgramNames())include(key,name);
+  const peer=secondaryPane?parent:secondaryFrame?.contentWindow;
+  const peerTabs=peer?.openProgramNames?.();
+  if(peerTabs?.length){
+    for(const {key,name} of peerTabs)include(key,name);
+  }else{
+    const prefix=secondaryPane?'':'secondary/';
+    for(const key of store.values.get(prefix+'console-tabs')||[]){
+      const entry=store.values.get(prefix+'tab/'+key);
+      if(entry && store.values.get(entry.storageKey)!==null)include(entry.storageKey||prefix+key,entry.title||entry.exampleTitle);
+    }
   }
-  storedPrograms.selectedIndex=0;
+  return names;
+}
+function freeProgramName(base,names) {
+  let name=base,number=0;
+  while(names.has(name.toLocaleLowerCase('ru')))name=base+' '+(++number);
+  return {name,number};
+}
+function saveConsoleDraft(entry) {
+  const saved={source:entry.source,files:entry.files||{},title:entry.title||entry.exampleTitle,version:entry.version};
+  if(entry.topicId)saved.topicId=entry.topicId;
+  if(/^(secondary\/)?(snippet\/|editor\/general$)/.test(entry.storageKey))saved.initial=entry.initial;
+  BookStore.prototype.set.call(store,entry.storageKey,saved);
+}
+function openConsoleDraft(key) {
+  const saved=store.values.get(key);
+  if(typeof saved?.source!=='string')return;
+  const unscoped=key.replace(/^secondary\//,'');
+  const lesson=findLesson(saved.topicId||unscoped.split('/')[1]);
+  addConsole({key:unscoped,storageKey:key,source:saved.source,files:saved.files,initial:saved.initial,
+    version:saved.version||lesson?.version||10,topicId:lesson?.id,topicTitle:lesson?.title||'',
+    exampleTitle:saved.title||describeSyncKey(key)});
+}
+function renameConsoleDraft(key,name) {
+  name=name.trim();
+  if(!name || name.length>100 || /[\u0000-\u001f\u007f]/.test(name))return 'Введи название от 1 до 100 символов в одну строку.';
+  if(occupiedProgramNames(key).has(name.toLocaleLowerCase('ru')))return 'Программа с таким названием уже есть.';
+  const tab=[...consoleTabs.values()].find(item=>item.entry.storageKey===key);
+  if(tab){
+    tab.entry={...tab.entry,title:name};
+    saveConsoleDraft(tab.entry);
+    rememberConsoleEntry(tab);
+    tab.cleanup?.setTitle(name);
+    paintConsoleTabs();
+  }else{
+    const saved=store.values.get(key);
+    if(typeof saved?.source!=='string')return 'Этот черновик уже удалён.';
+    BookStore.prototype.set.call(store,key,{...saved,title:name});
+    draftManager.refresh();
+  }
+  return '';
+}
+function moveConsoleToDrafts() {
+  const tab=consoleTabs.get(activeConsole);
+  if(!tab)return;
+  saveConsoleDraft(tab.entry);
+  closeConsole(activeConsole);
+}
+function removeConsoleDraft(key) {
+  const saved=store.values.get(key);
+  if(typeof saved?.source!=='string'||openProgramNames().some(tab=>tab.key===key))return null;
+  BookStore.prototype.set.call(store,key,null);
+  draftManager.refresh();
+  return ()=>{
+    if(store.values.get(key)!==null)return 'Черновик уже восстановлен или изменён.';
+    const names=occupiedProgramNames(key), original=saved.title||describeSyncKey(key);
+    const restored=names.has(original.toLocaleLowerCase('ru'))
+      ? {...saved,title:freeProgramName(/^Программа(?: \d+)?$/.test(original)?'Программа':original,names).name}
+      : saved;
+    BookStore.prototype.set.call(store,key,restored);
+    draftManager.refresh();
+    return '';
+  };
+}
+function rememberConsoleEntry(tab) {
+  if(typeof store.values.get(tab.entry.storageKey)?.source==='string')delete tab.entry.openedAfterDelete;
+  store.set('tab/'+tab.entry.key,tab.entry);
+  if(activeConsole===tab.entry.key)store.set('console',tab.entry);
 }
 function updateSyncedConsoles(keys) {
-  for(const tab of consoleTabs.values()) {
-    const storageKey=tab.entry.storageKey||store.scoped(tab.entry.key);
+  if(![...keys].some(key=>/^(secondary\/)?(editor|scratch|snippet)\//.test(key)))return;
+  for(const [key,tab] of [...consoleTabs]) {
+    const storageKey=tab.entry.storageKey;
     if(!keys.has(storageKey))continue;
     const draft=store.values.get(storageKey);
-    if(!draft || typeof draft.source!=='string')continue;
-    tab.entry={...tab.entry,...draft};
-    store.set('tab/'+tab.entry.key,tab.entry);
-    if(activeConsole===tab.entry.key)store.set('console',tab.entry);
+    if(draft===null){closeConsole(key);continue;}
+    if(typeof draft?.source!=='string')continue;
+    tab.entry={...tab.entry,source:draft.source,files:draft.files,title:draft.title};
+    rememberConsoleEntry(tab);
+    tab.cleanup?.setTitle(tab.entry.title||tab.entry.exampleTitle);
     tab.cleanup?.updateFiles(draft);
   }
-  if(state.page==='console')refreshStoredPrograms();
+  if(state.page==='console')paintConsoleTabs();
 }
 function revealActiveConsoleTab() {
   const current=consoleTabs.get(activeConsole)?.group;
@@ -150,15 +227,19 @@ function paintConsoleTabs() {
   for(const [key,tab] of consoleTabs) {
     if(!tab.group){
       const group=document.createElement('span'), select=document.createElement('button'), close=document.createElement('button');
-      group.className='dock-tab';select.textContent=tab.entry.exampleTitle||'Консоль';
-      select.title=[tab.entry.topicTitle,select.textContent].filter(Boolean).join(' · ');
+      group.className='dock-tab';
       select.onclick=()=>selectConsole(key);
-      close.textContent='×';close.setAttribute('aria-label','Закрыть вкладку «'+select.textContent+'»');close.onclick=()=>closeConsole(key);
+      close.textContent='×';close.onclick=()=>closeConsole(key);
       group.append(select,close);dockTabs.append(group);tab.group=group;
     }
-    tab.group.firstElementChild.setAttribute('aria-pressed',String(activeConsole===key));
+    const [select,close]=tab.group.children;
+    const title=tab.entry.title||tab.entry.exampleTitle||'Консоль';
+    select.textContent=title;
+    select.title=[tab.entry.topicTitle,title].filter(Boolean).join(' · ');
+    close.setAttribute('aria-label','Закрыть вкладку «'+title+'»');
+    select.setAttribute('aria-pressed',String(activeConsole===key));
   }
-  refreshStoredPrograms();
+  draftManager?.refresh();
   revealActiveConsoleTab();
 }
 function selectConsole(key) {
@@ -224,7 +305,11 @@ function addConsole(entry) {
   if(consoleTabs.has(key)){selectConsole(key);return;}
   const draft=store.values.get(storageKey);
   const initial=consoleTemplate({...entry,initial:entry.initial||draft?.initial},storageKey);
-  entry={...entry,...draft,key,storageKey,initial};
+  if(draft)entry={...entry,source:draft.source,files:draft.files,title:draft.title};
+  entry={...entry,key,storageKey,initial};
+  // A lesson example can be opened afresh after deleting its earlier draft.
+  // Remember the observed deletion so a reload keeps this new, unedited tab.
+  if(draft===null)entry.openedAfterDelete=true;
   const host=document.createElement('div');host.className='cs-console-page';
   consolePages.append(host);
   const tab={host,entry,cleanup:null};consoleTabs.set(key,tab);store.set('tab/'+key,entry);
@@ -232,12 +317,9 @@ function addConsole(entry) {
   import('./console.js').then(({mountConsole})=>{
     if(consoleTabs.get(key)!==tab)return;
     tab.cleanup=mountConsole(host,{...tab.entry,showHeader:false,onBack:resumeReading,onChange:(source,files)=>{
-      tab.entry={...tab.entry,source,files};
-      const saved={source,files};
-      // Freely selected passages and the general console lack a unique example index.
-      if(/^(secondary\/)?(snippet\/|editor\/general$)/.test(storageKey))saved.initial=initial;
-      BookStore.prototype.set.call(store,storageKey,saved);store.set('tab/'+key,tab.entry);
-      if(activeConsole===key)store.set('console',tab.entry);
+      tab.entry={...tab.entry,source,files,openedAfterDelete:false};
+      saveConsoleDraft(tab.entry);
+      rememberConsoleEntry(tab);
     }});
   }).catch(e=>{host.textContent='Не удалось открыть консоль. '+e.message;});
 }
@@ -246,15 +328,17 @@ function ensureConsole() {
   const previous=store.get('console',null);
   for(const key of store.get('console-tabs',[])){
     const entry=store.get('tab/'+key,null);
-    if(entry)addConsole(entry);
+    if(entry && (entry.openedAfterDelete || store.values.get(entry.storageKey||store.scoped(key))!==null))addConsole(entry);
   }
-  if(previous) addConsole({...previous,key:previous.key||'editor/general'});
+  if(previous && (previous.openedAfterDelete || store.values.get(previous.storageKey||store.scoped(previous.key||'editor/general'))!==null))
+    addConsole({...previous,key:previous.key||'editor/general'});
+  if(!consoleTabs.size && previous)newConsole();
   if(!consoleTabs.size) addConsole({...defaultEditor(findLesson(state.lesson)),key:'editor/general'});
 }
 function newConsole() {
-  const number=store.get('console-sequence',0)+1;store.set('console-sequence',number);
+  const {name:title,number}=freeProgramName('Программа',occupiedProgramNames());
   const identity=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint32Array(4)),n=>n.toString(16)).join('-');
-  addConsole({key:'scratch/'+number+'/'+identity,source:'',files:{},version:10,topicId:state.lesson,topicTitle:'',exampleTitle:'Программа '+number});
+  addConsole({key:'scratch/'+number+'/'+identity,source:'',files:{},version:10,topicId:state.lesson,topicTitle:'',exampleTitle:title});
 }
 function contentsButton(css) {
   return button('menu',icon('menu')+icon('x')+'Содержание',css,

@@ -62,6 +62,7 @@ export function mountConsole(container, options = {}) {
   let dispose = mountConsolePage(container,options);
   function cleanup() { dispose?.(); dispose = null; }
   cleanup.updateFiles = draft => dispose?.updateFiles(draft);
+  cleanup.setTitle = name => dispose?.setTitle(name);
   cleanup.openExample = example => {
     cleanup();
     dispose = mountConsolePage(container,{onBack:options.onBack, onChange:options.onChange, showHeader:options.showHeader, ...example});
@@ -71,7 +72,7 @@ export function mountConsole(container, options = {}) {
 }
 
 function mountConsolePage(container, {
-  source = '', version = 10, files = {}, topicTitle = '', exampleTitle = '',
+  source = '', version = 10, files = {}, topicTitle = '', exampleTitle = '', title = exampleTitle,
   initial = {source, files}, onBack, onChange, showHeader = true
 } = {}) {
   function projectFiles({source,files}) {
@@ -87,10 +88,10 @@ function mountConsolePage(container, {
   const page = document.createElement('div');
   page.className = 'cx-console';
   const back = onBack ? button('back','К уроку','arrow-left','cx-back') : '';
-  const trail = [topicTitle, exampleTitle].filter(Boolean).map(html).join(' · ');
+  const trail = name => [topicTitle, name].filter(Boolean).join(' · ');
   page.innerHTML = '<div class="cx-product">' +
     (showHeader ? '<header class="cx-bar"><div class="cx-brand"><span class="cx-logo" aria-hidden="true">C#</span>Sharpwise</div>' + back + '</header>' : '') +
-    '<div class="cx-content"><div class="cx-head"><div>' + (trail ? '<div class="cx-crumb">' + trail + '</div>' : '') +
+    '<div class="cx-content"><div class="cx-head"><div>' + '<div class="cx-crumb"' + (trail(title) ? '' : ' hidden') + '>' + html(trail(title)) + '</div>' +
     '<h1>Консоль</h1></div>' + (showHeader ? '' : back) + '</div>' +
     '<div class="cx-grid"><section class="cx-editor" aria-label="Редактор C#"><div class="cx-filebar"><div class="cx-files"></div>' +
     button('copy','Копировать','copy','cx-copy') + '</div><div class="cx-codeview"></div>' +
@@ -386,6 +387,11 @@ function mountConsolePage(container, {
     editor.switchFile(current, next.get(current));
     drawFiles();
   }
+  cleanup.setTitle = name => {
+    const crumb = $('.cx-crumb');
+    crumb.textContent = trail(name);
+    crumb.hidden = !crumb.textContent;
+  };
   cleanup.updateFiles = draft => {
     replaceProject(projectFiles(draft),current);
     scheduleRefresh();

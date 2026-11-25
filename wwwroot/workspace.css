@@ -41,11 +41,7 @@ html {scrollbar-gutter:auto}
 #book .dock-tab button,#book .dock-icon {padding:5px 8px;font-size:12px}
 #book .dock-tab button:first-child {max-width:180px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
 #book .dock-tab button[aria-pressed=true]{background:var(--cs-wash);color:var(--cs-violet)}
-.dock-toolbar .dock-icon,.dock-picker {box-sizing:border-box;display:grid;place-items:center;flex:none;width:36px;height:36px}
-.dock-picker {position:relative;color:var(--cs-ink);border-radius:7px}
-.dock-picker:hover {background:var(--cs-hover)}
-.dock-picker:focus-within {outline:3px solid var(--cs-violet);outline-offset:-2px}
-#stored-programs {position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.dock-toolbar .dock-icon {box-sizing:border-box;display:grid;place-items:center;flex:none;width:36px;height:36px}
 #book .chapter-theory {max-width:76ch;margin:20px 0 26px}
 #book .chapter-theory h2{margin-top:20px}
 #book .chapter-theory p {white-space:pre-line;line-height:1.68;margin:7px 0 15px}
@@ -83,7 +79,7 @@ html {scrollbar-gutter:auto}
 @media(pointer:coarse) {
   #book .cs-content button.passage-more {opacity:1;min-width:32px;min-height:32px}
   #book .dock-toolbar button {min-height:36px}
-  #book .dock-toolbar .dock-icon,.dock-picker {width:44px;height:44px}
+  #book .dock-toolbar .dock-icon {width:44px;height:44px}
 }
 #book.has-dock .cs-mobile-menu,#book .has-dock .cs-mobile-menu {display:flex;align-items:center;gap:4px;padding:7px}
 
