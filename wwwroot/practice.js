@@ -50,7 +50,7 @@ function exerciseView(lesson,task) {
     button('redo-draft',icon('redo-2'),'practice-icon','aria-label="Повторить правку" title="Повторить правку" disabled')+'</div>';
   const codeArea='<div class="practice-editor"><div class="practice-filebar"><b>C#</b>'+fileTabs+history+'</div>'+
     (predict?exerciseSource(files[file]):'<div class="cx-codeview">'+exerciseSource(files[file])+'</div><div class="cx-completions cx-exercise-completions" hidden></div>')+'</div>';
-  const prediction=predict?'<label class="cs-draft-label">Твой ответ<textarea class="prediction-answer" rows="3" placeholder="Введи строки в том порядке, в котором они появятся на экране" spellcheck="false" autocapitalize="off" aria-keyshortcuts="Control+Enter Meta+Enter">'+esc(store.get(draftKey(lesson,task),''))+'</textarea></label>':'';
+  const prediction=predict?'<label class="cs-draft-label">Твой ответ<textarea class="prediction-answer" rows="3" placeholder="// Введи вывод программы построчно" spellcheck="false" autocapitalize="off" aria-keyshortcuts="Control+Enter Meta+Enter">'+esc(store.get(draftKey(lesson,task),''))+'</textarea></label>':'';
   const gapHint = task.starter?.includes('___') && !predict
     ? '<p>Три подчёркивания <code>___</code> отмечают пропуск в заготовке. Замени их кодом.</p>' : '';
   const reference=Object.entries({'Program.cs':task.solution,...task.files}).map(([name,code])=>(names.length>1?'<strong>'+esc(name)+'</strong>':'')+copyable(code)).join('');
@@ -64,7 +64,7 @@ function exerciseView(lesson,task) {
     (predict?'':button('stop-draft',icon('square')+'Остановить','cs-tool','hidden')+
       button('reset-draft',icon('rotate-ccw')+'Сбросить код','cs-tool','title="Вернуть исходный код упражнения и очистить результат"'))+'</div><div class="cp-console"><div class="cp-result-head">'+icon('terminal')+'<strong>Результат проверки</strong></div>'+
     '<div class="cp-response" role="status" aria-live="polite"><p class="cp-status">'+exerciseReadyMessage(lesson,task)+'</p></div>'+
-    (predict?'':'<form class="cp-input" hidden><input aria-label="Ввод для программы" autocomplete="off" placeholder="Введи строку для программы"><button type="submit">Отправить</button></form>')+'</div>'+
+    (predict?'':'<form class="cp-input" hidden><input aria-label="Ввод для программы" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="// Введи строку для программы"><button type="submit">Отправить</button></form>')+'</div>'+
     (predict?'<details><summary>Разбор ответа</summary>'+copyable(task.output)+(task.explanation?'<p>'+formatText(task.explanation)+'</p>':'')+'</details>':'<details><summary>Сверить ожидаемый вывод</summary>'+copyable(task.output)+'</details><details><summary>Посмотреть решение</summary>'+reference+'</details>')+
     '</section>'+solvedList(lesson.id)+exerciseNavigation(lesson,task);
 }
