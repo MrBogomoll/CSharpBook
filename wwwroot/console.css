@@ -32,7 +32,7 @@
 :is(#book,:root) .cx-console .cx-editor-note{color:#c2bdcd;font-size:11px;white-space:nowrap}
 :is(#book,:root) .cx-console .cx-product .cx-run{display:inline-flex;gap:6px;align-items:center;padding:7px 14px;border-radius:6px;background:#c9aff4;color:#2c2042;font-size:13px;font-weight:670}
 :is(#book,:root) .cx-console .cx-run svg{width:14px;height:14px;fill:currentColor}
-:is(#book,:root) .cx-console .cx-key{color:#adbcff}:is(#book,:root) .cx-console .cx-num{color:#ebc989}:is(#book,:root) .cx-console .cx-class{color:#93dcd5}:is(#book,:root) .cx-console .cx-fn{color:#e4d79d}:is(#book,:root) .cx-console .cx-str{color:#f2bc9c}:is(#book,:root) .cx-console .cx-comment{color:#a1b29a}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cx-key{color:#adbcff}:is(#book,:root) :is(.cx-console,.practice-editor) .cx-num{color:#ebc989}:is(#book,:root) :is(.cx-console,.practice-editor) .cx-class{color:#93dcd5}:is(#book,:root) :is(.cx-console,.practice-editor) .cx-fn{color:#e4d79d}:is(#book,:root) :is(.cx-console,.practice-editor) .cx-str{color:#f2bc9c}:is(#book,:root) :is(.cx-console,.practice-editor) .cx-comment{color:#a1b29a}
 :is(#book,:root) .cx-console .cx-termbar{background:#23222d;justify-content:flex-start}
 :is(#book,:root) .cx-console .cx-term-status{display:flex;align-items:center;gap:5px;margin-left:auto;font-size:11px;color:#ccc7d5;white-space:nowrap}
 :is(#book,:root) .cx-console .cx-term-status svg{width:13px;height:13px}
@@ -107,22 +107,22 @@
 :is(#book,:root) .cx-console .cx-stdin input{width:100%;min-width:0;border:1px solid #82738e;background:#26232e;color:#f4eef7;border-radius:5px;padding:7px;font:14px/1.3 Consolas,monospace}
 :is(#book,:root) .cx-console .cx-stdin input:focus{outline:2px solid #c9aff4;outline-offset:1px}
 :is(#book,:root) .cx-console .cx-grid{--row:25px;--type:14px;--height:calc(var(--cx-lines,5) * var(--row) + 30px)}
-:is(#book,:root) .cx-console .cx-codeview{min-width:0;background:#20202a;color:#eeeaf6}
-:is(#book,:root) .cx-console .cm-editor{height:var(--height);text-align:left}
-:is(#book,:root) .cx-console .cm-editor.cm-focused{outline:1px solid #b9a3d7;outline-offset:-1px}
-:is(#book,:root) .cx-console .cm-scroller{font:var(--type)/var(--row) Consolas,"Courier New",monospace;overflow:auto;letter-spacing:0;font-variant-ligatures:none}
-:is(#book,:root) .cx-console .cm-content{padding:15px 0;caret-color:white;tab-size:4}
-:is(#book,:root) .cx-console .cm-content ::selection,:is(#book,:root) .cx-console .cm-content::selection{background:#70658f}
-:is(#book,:root) .cx-console .cm-gutters{background:#20202a;color:#a59db3;border:0;user-select:none}
-:is(#book,:root) .cx-console .cm-lineNumbers .cm-gutterElement{min-width:32px;padding:0 5px 0 3px}
-:is(#book,:root) .cx-console .cm-line{padding:0 9px}
-:is(#book,:root) .cx-console .cm-line.bad{background:#56303d;box-shadow:inset 3px 0 #f3899d}
-:is(#book,:root) .cx-console .cm-line.mark{background:#323041;box-shadow:inset 3px 0 #ae94d9}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cx-codeview{min-width:0;background:#20202a;color:#eeeaf6}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-editor{height:var(--height);text-align:left}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-editor.cm-focused{outline:1px solid #b9a3d7;outline-offset:-1px}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-scroller{font:var(--type)/var(--row) Consolas,"Courier New",monospace;overflow:auto;letter-spacing:0;font-variant-ligatures:none}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-content{padding:15px 0;caret-color:white;tab-size:4}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-content ::selection,:is(#book,:root) :is(.cx-console,.practice-editor) .cm-content::selection{background:#70658f}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-gutters{background:#20202a;color:#a59db3;border:0;user-select:none}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-lineNumbers .cm-gutterElement{min-width:32px;padding:0 5px 0 3px}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-line{padding:0 9px}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-line.bad{background:#56303d;box-shadow:inset 3px 0 #f3899d}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-line.mark{background:#323041;box-shadow:inset 3px 0 #ae94d9}
 :is(#book,:root) .cx-console .cx-crumb{overflow-wrap:anywhere}
 @container book-window (max-width:650px){
   :is(#book,:root) .cx-console .cx-grid{--type:13px;--row:23px;--height:calc(var(--cx-lines,5) * var(--row) + 24px)}
-  :is(#book,:root) .cx-console .cm-content{padding:12px 0}
-  :is(#book,:root) .cx-console .cm-lineNumbers .cm-gutterElement{min-width:24px}
+  :is(#book,:root) :is(.cx-console,.practice-editor) .cm-content{padding:12px 0}
+  :is(#book,:root) :is(.cx-console,.practice-editor) .cm-lineNumbers .cm-gutterElement{min-width:24px}
   :is(#book,:root) .cx-console .cx-result{max-height:265px}
 }
 @media(pointer:coarse){
@@ -131,7 +131,7 @@
   :is(#book,:root) .cx-console .cx-filebar,:is(#book,:root) .cx-console .cx-termbar{min-height:44px}
   :is(#book,:root) .cx-console .cx-stdin input{font-size:16px;min-height:42px}
 }
-@media(forced-colors:active){:is(#book,:root) .cx-console .cm-content{caret-color:CanvasText}}
+@media(forced-colors:active){:is(#book,:root) :is(.cx-console,.practice-editor) .cm-content{caret-color:CanvasText}}
 :is(#book,:root) .cx-console .cx-original{margin:4px 0;color:#c9bfce;font-size:12px}
 :is(#book,:root) .cx-console .cx-original summary{cursor:pointer}
 :is(#book,:root) .cx-console .cx-original p{padding:3px 0}

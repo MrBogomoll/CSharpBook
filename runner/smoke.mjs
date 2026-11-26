@@ -62,9 +62,15 @@ try {
     assert.equal(await evaluate('document.querySelector(".cx-term-status").textContent'),'Готово к запуску');
     assert.equal(await evaluate('store.get("console").source'),template);
     await evaluate('go("lesson","read-line","challenge-2")');
-    await until('!!document.querySelector("[data-action=run-custom]")');
+    await until('!!document.querySelector(".practice-editor .cm-content")');
     const checkCode=async expression=>{
-      await evaluate('(()=>{const area=document.querySelector(".cs-draft");area.value='+expression+';area.dispatchEvent(new Event("input",{bubbles:true}));document.querySelector("[data-action=run-draft]").click();})()');
+      const code=await evaluate(expression);
+      await evaluate('document.querySelector(".practice-editor .cm-content").focus()');
+      await call('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',modifiers:2,windowsVirtualKeyCode:65});
+      await call('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA',modifiers:2,windowsVirtualKeyCode:65});
+      await call('Input.insertText',{text:code});
+      await until('exerciseFiles(findLesson(state.lesson),activeTask())["Program.cs"] === '+JSON.stringify(code));
+      await evaluate('document.querySelector("[data-action=run-draft]").click()');
       await until('!document.querySelector("[data-action=run-draft]").disabled');
     };
     await checkCode('"Console.Write(" + JSON.stringify(activeTask().output) + ");"');
@@ -77,7 +83,7 @@ try {
     await until('!!document.querySelector(\'.cs-content a[href="#lesson/read-line/challenge-2"]\')');
     console.log('Only a solution that passed alternate inputs appeared in the chapter list.');
     await evaluate('document.querySelector("[data-action=reset-draft]").click()');
-    assert.ok(await evaluate('document.querySelector(".cs-draft").value === activeTask().starter'));
+    assert.ok(await evaluate('Array.from(document.querySelectorAll(".practice-editor .cm-line"),line=>line.textContent).join("\\n") === activeTask().starter'));
     assert.ok(await evaluate('exerciseDone(findLesson("read-line"),activeTask())'));
   }
   const tests=[

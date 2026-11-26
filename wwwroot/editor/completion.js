@@ -240,23 +240,3 @@ export function connectCompletions(input, panel, read, replace) {
     else input.removeAttribute('aria-keyshortcuts');
   }};
 }
-
-export function attachLessonCompletions(textarea, {version = 10, files = {}, fileName = 'Program.cs'} = {}) {
-  const panel = document.createElement('div');
-  panel.className = 'cx-completions cx-exercise-completions';
-  panel.hidden = true;
-  textarea.after(panel);
-  const read = () => ({text:textarea.value, head:textarea.selectionEnd, anchor:textarea.selectionStart,
-    version:Number(version), files, fileName});
-  const completion = connectCompletions(textarea,panel,read,(from,to,text,caret = from + text.length) => {
-    textarea.setRangeText(text,from,to,'end');
-    textarea.setSelectionRange(caret,caret);
-    textarea.dispatchEvent(new Event('input',{bubbles:true}));
-    textarea.focus({preventScroll:true});
-  });
-  const controller = new AbortController();
-  const observe = (event,fn) => textarea.addEventListener(event,fn,{signal:controller.signal});
-  observe('input',() => completion.suggest());
-  observe('click',() => completion.suggest());
-  return () => {controller.abort(); completion.destroy(); panel.remove();};
-}

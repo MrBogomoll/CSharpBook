@@ -4,7 +4,6 @@ const store = new PaneStore();
 let chapters = [], lessons = [];
 const state = {page:'home',lesson:'',step:'',taskFile:'Program.cs',example:0,read:[],saved:[],expanded:[0],started:false};
 let feedback='', hideExampleOutput=false, selectedFile='Program.cs';
-let detachHints=null;
 let cloudSync=null;
 let scrollTimer=null;
 let leavingSettings=false;
@@ -110,7 +109,6 @@ function route() {
   const changed=isReading&&key!==readerKey;
   if(['home','saved','settings'].includes(previous))pagePositions.set(previous,primary.scrollTop);
   if(changed){
-    detachHints?.();detachHints=null;
     state.taskFile='Program.cs';
     state.example=0;selectedFile='Program.cs';hideExampleOutput=false;feedback='';
   }
@@ -161,15 +159,14 @@ function paintReader() {
   const key=lastReading, same=readerKey===key;
   const open=same?[...reader.querySelectorAll('details')].map(d=>d.open):[];
   const task=activeTask();
-  detachHints?.();detachHints=null;
+  exerciseEditor?.destroy();
+  exerciseEditor=null;
   readerKey=key;
   reader.innerHTML='<div class="cs-grid">'+sidebar()+'<main class="cs-content">'+(key.startsWith('chapter/')?chapterView(Number(key.slice(8))):stepStrip(lesson,state.step)+(task?exerciseView(lesson,task):lessonView(lesson)))+'</main></div>';
   reader.querySelectorAll('details').forEach((d,i)=>{if(i<open.length)d.open=open[i];});
   decoratePassages();
-  const area=reader.querySelector('.cs-draft');
-  if(area)import('./editor/completion.js').then(({attachLessonCompletions})=>{
-    if(area.isConnected)detachHints=attachLessonCompletions(area,{version:task.version||lesson.version||10,files:exerciseFiles(lesson,task),fileName:state.taskFile});
-  });
+  const code=reader.querySelector('.practice-editor .cx-codeview');
+  if(code)mountExerciseEditor(lesson,task,code);
   const tour=reader.querySelector('.project-tour');
   if(tour)import('./project.js').then(m=>{if(tour.isConnected)m.showProject(tour,{esc,icon,copyable,glyphs});});
   showExerciseResult();
@@ -246,9 +243,7 @@ root.addEventListener('click',e=>{
   if(action==='step')return go('lesson',lesson.id,arg);
   if(action==='task-file'){
     const task=activeTask();if(!task)return;
-    const name=['Program.cs',...Object.keys(task.files||{})][Number(arg)];
-    if(name){state.taskFile=name;paintReader();glyphs();}
-    return;
+    return selectExerciseFile(lesson,task,Number(arg));
   }
   if(action==='chapter') return go('chapter',arg);
   if(action==='dock')return toggleDock();
@@ -275,6 +270,8 @@ root.addEventListener('click',e=>{
   if(action==='open-beside')return useExample(true);
   if(action==='run-draft') return runExercise();
   if(action==='run-custom') return runExercise(true);
+  if(action==='undo-draft') return exerciseEditor?.undo();
+  if(action==='redo-draft') return exerciseEditor?.redo();
   if(action==='reset-draft')return resetExercise();
   if(action==='stop-draft')return stopExercise(exerciseRuns.get(readerKey));
   if(action==='copy-command'||action==='copy-sample')return copyText(trigger.dataset.source??trigger.querySelector('code').textContent,trigger);
@@ -310,14 +307,12 @@ root.addEventListener('change',e=>{if(e.target.name==='theme'){store.set('theme'
 root.addEventListener('input',e=>{
   if(e.target.matches('.cp-input input')){
     const run=exerciseRuns.get(readerKey);if(run)run.input=e.target.value;
-  }else if(e.target.matches('.cs-draft,.prediction-answer')){
+  }else if(e.target.matches('.prediction-answer')){
     const lesson=findLesson(state.lesson),task=activeTask();if(!task)return;
-    store.set(draftKey(lesson,task,task.answerMode==='output'?'Program.cs':state.taskFile),e.target.value);
-    const run=exerciseRuns.get(readerKey);
-    if(run&&!run.running){run.status='Ответ изменён. Проверь его ещё раз.';run.error=false;showExerciseResult();}
+    saveExerciseDraft(lesson,task,'Program.cs',e.target.value);
   }
 });
-root.addEventListener('keydown',e=>{if(e.target.matches('.cs-draft,.prediction-answer')&&(e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runExercise();}});
+root.addEventListener('keydown',e=>{if(e.target.matches('.prediction-answer')&&(e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runExercise();}});
 root.addEventListener('submit',e=>{
   if(!e.target.matches('.cp-input'))return;
   e.preventDefault();const run=exerciseRuns.get(readerKey);
@@ -355,10 +350,15 @@ function refreshCloudChanges(changes) {
   if(page==='home' && changes.every(key=>key.startsWith('solved/')))return;
   if(page==='home'||page==='saved'){render();return;}
   if(reading){
-    const task=activeTask(), area=reader.querySelector('.cs-draft,.prediction-answer');
-    if(task && area){
+    const task=activeTask(), area=reader.querySelector('.prediction-answer');
+    if(task && exerciseEditor){
       const lesson=findLesson(state.lesson);
-      const key=draftKey(lesson,task,task.answerMode==='output'?'Program.cs':state.taskFile);
+      for(const [name,source] of Object.entries(exerciseFiles(lesson,task))){
+        if(keys.has(store.scoped(draftKey(lesson,task,name))))exerciseEditor.updateFile(name,source,true);
+      }
+    }else if(task && area){
+      const lesson=findLesson(state.lesson);
+      const key=draftKey(lesson,task);
       if(keys.has(store.scoped(key))){
         const value=store.get(key,'');
         if(typeof value==='string'&&area.value!==value){
