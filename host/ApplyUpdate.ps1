@@ -7,8 +7,9 @@ $incoming = Join-Path $stage 'new'
 $backup = Join-Path $stage 'backup'
 $journal = Join-Path $stage 'transaction.json'
 $committed = Join-Path $stage 'committed'
-$names = @('wwwroot','licenses','Начало работы.txt','CSharpBook.exe')
-$exe = Join-Path $install 'CSharpBook.exe'
+$exeName = 'Sharpwise.exe'
+$names = @('wwwroot','licenses','Начало работы.txt',$exeName)
+$exe = Join-Path $install $exeName
 
 function Move-BookItem($from, $to) {
     if ([IO.Directory]::Exists($from)) { [IO.Directory]::Move($from,$to) } else { [IO.File]::Move($from,$to) }
@@ -22,7 +23,7 @@ function Restore-Previous {
         $target = Join-Path $install $name
         $new = Join-Path $incoming $name
         if (Test-Path -LiteralPath $saved) {
-            if (($name -eq 'CSharpBook.exe') -and (Test-Path -LiteralPath $target)) {
+            if (($name -eq $exeName) -and (Test-Path -LiteralPath $target)) {
                 [IO.File]::Replace($saved,$target,(Join-Path $stage 'failed.exe'))
             } else {
                 if (Test-Path -LiteralPath $target) { Move-BookItem $target $new }
@@ -70,7 +71,7 @@ try {
         $target = Join-Path $install $name
         $saved = Join-Path $backup $name
         $new = Join-Path $incoming $name
-        if ($name -eq 'CSharpBook.exe') {
+        if ($name -eq $exeName) {
             [IO.File]::Replace($new,$target,$saved)
         } else {
             if (Test-Path -LiteralPath $target) { Move-BookItem $target $saved }

@@ -30,10 +30,13 @@ internal static class ReleaseUpdate
             throw new InvalidDataException("Не удалось подтвердить источник выпуска.");
         if (!switchToStable && Version.Parse(version) <= Version.Parse(current.Split('_')[0])) return null;
 
-        var assets = release.GetProperty("assets").EnumerateArray().Where(a => {
-            string? file = a.GetProperty("name").GetString();
-            return file == $"Sharpwise-{version}-Windows-x64.zip" || file == $"CSharpBook-{version}-Windows-x64.zip";
-        }).ToArray();
+        var files = release.GetProperty("assets").EnumerateArray().ToArray();
+        var assets = files.Where(a => a.GetProperty("name").GetString() == $"Sharpwise-{version}-Windows-x64-Portable.zip").ToArray();
+        if (assets.Length == 0)
+            assets = files.Where(a => {
+                string? file = a.GetProperty("name").GetString();
+                return file == $"Sharpwise-{version}-Windows-x64.zip" || file == $"CSharpBook-{version}-Windows-x64.zip";
+            }).ToArray();
         if (assets.Length != 1) throw new InvalidDataException("В выпуске нет однозначного архива для Windows x64.");
         var asset = assets[0];
         string name = asset.GetProperty("name").GetString()!;
@@ -99,7 +102,8 @@ internal static class ReleaseUpdate
         throw new InvalidDataException("GitHub вернул слишком много перенаправлений.");
     }
 
-    internal static readonly string[] Items = ["wwwroot", "licenses", "Начало работы.txt", "CSharpBook.exe"];
+    internal const string ExeName = "Sharpwise.exe";
+    internal static readonly string[] Items = ["wwwroot", "licenses", "Начало работы.txt", ExeName];
 
     internal static void Extract(string zip, string destination, string version)
     {
@@ -109,7 +113,7 @@ internal static class ReleaseUpdate
         foreach (var entry in archive.Entries)
         {
             string[] parts = entry.FullName.Split('/');
-            if (parts.Length < 2 || parts[0] != "CSharpBook" || !Items.Contains(parts[1]) ||
+            if (parts.Length < 2 || parts[0] != "Sharpwise" || !Items.Contains(parts[1]) ||
                 (parts.Length > 2 && parts[1] is not ("wwwroot" or "licenses")) ||
                 parts.Any(p => p.Length == 0 || p is "." or ".." || p.EndsWith('.') || p.EndsWith(' ') || p.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0))
                 throw new InvalidDataException("В архиве есть неожиданный путь.");
@@ -119,7 +123,7 @@ internal static class ReleaseUpdate
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
             entry.ExtractToFile(file, overwrite: false);
         }
-        string exe = Path.Combine(destination, "CSharpBook.exe");
+        string exe = Path.Combine(destination, ExeName);
         if (!File.Exists(Path.Combine(destination, "wwwroot", "index.html")) || !Directory.Exists(Path.Combine(destination, "licenses")) ||
             !File.Exists(Path.Combine(destination, "Начало работы.txt")) || !File.Exists(exe) ||
             FileVersionInfo.GetVersionInfo(exe).ProductVersion?.Split('+')[0] != version)

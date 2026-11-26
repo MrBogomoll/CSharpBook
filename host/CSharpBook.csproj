@@ -5,7 +5,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>CSharpBook</AssemblyName>
+    <AssemblyName>Sharpwise</AssemblyName>
     <Product>Sharpwise</Product>
     <ApplicationIcon>book.ico</ApplicationIcon>
     <Version>0.5.2</Version>

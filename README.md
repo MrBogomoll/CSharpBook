@@ -9,7 +9,7 @@
 
 <p align="center">
   <strong><a href="https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.2/Sharpwise-0.5.2-Android.apk">Скачать для Android (.apk)</a></strong> ·
-  <strong><a href="https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.2/Sharpwise-0.5.2-Windows-x64.zip">Скачать для Windows x64 (.zip)</a></strong> ·
+  <strong><a href="https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.2/Sharpwise-0.5.2-Windows-x64-Portable.zip">Скачать для Windows x64 (.zip)</a></strong> ·
   <a href="https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.2/Sharpwise-0.5.2-Web.zip">Веб-версия (.zip)</a>
 </p>
 
@@ -67,11 +67,11 @@ Console.WriteLine("Свободно 8 мест");
 | Где заниматься | Как открыть Sharpwise |
 | --- | --- |
 | Android 9 и новее | Скачай APK на телефон и открой его. Для примеров на C# 15 нужен Android System WebView 137 или новее. |
-| Windows x64 | Распакуй ZIP целиком и запусти `CSharpBook.exe` в папке `CSharpBook`. Нужна среда Microsoft Edge WebView2. |
+| Windows x64 | Распакуй ZIP целиком и запусти `Sharpwise.exe` в папке `Sharpwise`. Нужна среда Microsoft Edge WebView2. |
 | iPhone или iPad в одной сети с ПК | В настройках Windows-приложения нажми «Открыть доступ по Wi-Fi». Отсканируй QR-код камерой и оставь Sharpwise открытым на компьютере. |
 | Браузер на Windows, Linux или macOS | Распакуй веб-архив. Установи ASP.NET Core Runtime 10 или .NET SDK 10. В папке архива выполни `dotnet CSharpBook.Server.dll` и открой `http://127.0.0.1:53821/`. |
 
-На Android начиная с 0.5.1 и на Windows после первого перехода с 0.3.5 открой **Настройки → Проверить обновления**. Sharpwise покажет номер версии и размер файла. На Android установку подтверждает системный установщик. Если после установки он остался на экране, нажми «Открыть». На Windows приложение перезапустится само.
+На Android начиная с 0.5.1 и в Windows-сборке с `Sharpwise.exe` открой **Настройки → Проверить обновления**. Sharpwise покажет номер версии и размер файла. На Android установку подтверждает системный установщик. Если после установки он остался на экране, нажми «Открыть». На Windows приложение перезапустится само.
 
 <details>
 <summary>Переход со старых версий</summary>
@@ -80,7 +80,7 @@ Console.WriteLine("Свободно 8 мест");
 
 **Android 0.2.0.** Актуальный Sharpwise установится рядом, со своим хранилищем.
 
-**Windows 0.3.5.** Закрой приложение и распакуй новый ZIP. Дальнейшие обновления доступны в настройках.
+**Windows с `CSharpBook.exe`.** Один раз закрой приложение, скачай ZIP по ссылке вверху и распакуй папку `Sharpwise` рядом со старой. Открой `Sharpwise.exe` в той же учётной записи Windows. Прогресс и настройки хранятся в профиле пользователя. Для дальнейших обновлений используй настройки приложения.
 
 </details>
 
@@ -133,7 +133,7 @@ python tools/offline.py
 dotnet publish host/CSharpBook.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o dist/windows
 ```
 
-Запусти `dist/windows/CSharpBook.exe` рядом с папкой `wwwroot`. Для тестового канала Windows добавь к команде публикации `-p:SharpwiseChannel=Preview`. Из тестового канала можно перейти на стабильный выпуск.
+Запусти `dist/windows/Sharpwise.exe` рядом с папкой `wwwroot`. Для тестового канала Windows добавь к команде публикации `-p:SharpwiseChannel=Preview`. Из тестового канала можно перейти на стабильный выпуск.
 
 Для веб-сборки выполни `dotnet publish server/CSharpBook.Server.csproj -c Release -o dist/web`, скопируй `wwwroot` в `dist/web` и запусти `dotnet dist/web/CSharpBook.Server.dll`. Флаг `--lan` открывает сервер в локальной сети. Для установки веб-версии с офлайн-кэшем нужен HTTPS или localhost. После полной первой загрузки service worker сохраняет курс, редактор и обе среды выполнения. Для интерактивного ввода без общей памяти нужен серверный канал ввода.
 
