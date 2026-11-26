@@ -67,7 +67,7 @@ html {scrollbar-gutter:auto}
 #book .chapter-theory {max-width:76ch;margin:20px 0 26px}
 #book .chapter-theory h2{margin-top:20px}
 #book .chapter-theory p {white-space:pre-line;line-height:1.68;margin:7px 0 15px}
-#book .chapter-theory code {font:.94em Consolas,monospace;background:var(--cs-hover);padding:0 3px;border-radius:3px;overflow-wrap:anywhere}
+#book .chapter-theory code {font:.94em var(--code-font);background:var(--cs-hover);padding:0 3px;border-radius:3px;overflow-wrap:anywhere}
 #book .cs-product .chapter-intro-link {display:flex;align-items:center;gap:8px;width:100%;padding:10px 16px;color:var(--cs-violet);border-top:1px solid var(--cs-line);border-radius:0}
 #book .chapter-sequence {margin:26px 0}
 #book .cs-editor-foot {flex-wrap:wrap}

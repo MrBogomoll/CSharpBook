@@ -15,7 +15,7 @@
 :is(#book,:root) .cx-console .cx-product button svg,:is(#book,:root) .cx-console .cx-product svg{display:inline-block;flex:none;width:16px;height:16px;stroke-width:1.75}
 :is(#book,:root) .cx-console .cx-bar{padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--edge)}
 :is(#book,:root) .cx-console .cx-brand{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;letter-spacing:-.03em}
-:is(#book,:root) .cx-console .cx-logo{width:30px;height:30px;display:grid;place-items:center;border-radius:8px 8px 8px 3px;background:#6546a8;color:white;font:700 16px/1 Consolas,monospace}
+:is(#book,:root) .cx-console .cx-logo{width:30px;height:30px;display:grid;place-items:center;border-radius:8px 8px 8px 3px;background:#6546a8;color:white;font:700 16px/1 var(--code-font)}
 :is(#book,:root) .cx-console .cx-product .cx-back,:is(#book,:root) .cx-console .cx-product .cx-soft,:is(#book,:root) .cx-console .cx-product .cx-primary,:is(#book,:root) .cx-console .cx-product .cx-nav-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 11px;border:1px solid var(--edge);font-size:13px;font-weight:550;line-height:1.3}
 :is(#book,:root) .cx-console .cx-product .cx-back{border-color:transparent;color:var(--violet)}
 :is(#book,:root) .cx-console .cx-product .cx-primary{color:#fff;background:#6742a8;border-color:#6742a8}
@@ -30,7 +30,7 @@
 :is(#book,:root) .cx-console .cx-editor,:is(#book,:root) .cx-console .cx-terminal{min-width:0}
 :is(#book,:root) .cx-console .cx-terminal{background:#191922;border-left:1px solid #403d4a;display:flex;flex-direction:column;color:#edeaf2}
 :is(#book,:root) .cx-console .cx-filebar,:is(#book,:root) .cx-console .cx-termbar{height:43px;display:flex;gap:10px;align-items:center;justify-content:space-between;border-bottom:1px solid #393744;padding:0 12px;color:#e1dce9;background:#292733}
-:is(#book,:root) .cx-console .cx-file,:is(#book,:root) .cx-console .cx-termname{display:flex;align-items:center;gap:7px;font:12px Consolas,monospace}
+:is(#book,:root) .cx-console .cx-file,:is(#book,:root) .cx-console .cx-termname{display:flex;align-items:center;gap:7px;font:12px var(--code-font)}
 :is(#book,:root) .cx-console .cx-file b{background:#473858;color:#d4baf7;font-size:10px;border-radius:3px;padding:2px 4px}
 :is(#book,:root) .cx-console .cx-product .cx-copy{color:#d6d0e0;display:flex;align-items:center;gap:5px;font-size:11px;padding:6px}
 :is(#book,:root) .cx-console .cx-copy svg{width:13px;height:13px}
@@ -49,9 +49,9 @@
 :is(#book,:root) .cx-console .cx-term-status.ok{color:#a4dfbf}:is(#book,:root) .cx-console .cx-term-status.fail{color:#ffa9b8}
 :is(#book,:root) .cx-console .cx-result{padding:16px 15px;min-height:110px;overflow-wrap:anywhere;font-size:13px}
 :is(#book,:root) .cx-console .cx-product .cx-idle{color:#b5afbf;font-size:13px;max-width:34ch;line-height:1.55}
-:is(#book,:root) .cx-console .cx-product .cx-out{color:#b3e8cc;white-space:pre-wrap;overflow-wrap:anywhere;font:15px/1.55 Consolas,monospace}
-:is(#book,:root) .cx-console .cx-prompt{font:14px/1 Consolas,monospace;color:#b89dd4;margin-bottom:6px;display:block}
-:is(#book,:root) .cx-console .cx-tag-error{display:inline-block;color:#ffacb8;font:600 12px Consolas,monospace}
+:is(#book,:root) .cx-console .cx-product .cx-out{color:#b3e8cc;white-space:pre-wrap;overflow-wrap:anywhere;font:15px/1.55 var(--code-font)}
+:is(#book,:root) .cx-console .cx-prompt{font:14px/1 var(--code-font);color:#b89dd4;margin-bottom:6px;display:block}
+:is(#book,:root) .cx-console .cx-tag-error{display:inline-block;color:#ffacb8;font:600 12px var(--code-font)}
 :is(#book,:root) .cx-console .cx-product .cx-locate{display:inline-flex;align-items:center;gap:4px;text-align:left;color:#d9c7f8;padding:4px 0;text-decoration:underline;text-underline-offset:2px;font-size:12px}
 :is(#book,:root) .cx-console .cx-locate svg{width:12px;height:12px}
 :is(#book,:root) .cx-console .cx-error-text{margin:5px 0 3px!important;color:#f6e0e8!important}
@@ -71,7 +71,7 @@
 :is(#book,:root) .cx-console .cx-method code,:is(#book,:root) .cx-console .cx-method strong{color:#e4d79d}
 :is(#book,:root) .cx-console .cx-method small{color:#c9c0d5;font-size:11px}
 :is(#book,:root) .cx-console .cx-product .cx-method:hover,:is(#book,:root) .cx-console .cx-product .cx-method[aria-selected=true]{background:#494053}
-:is(#book,:root) .cx-console .cx-product code{font-family:Consolas,monospace}
+:is(#book,:root) .cx-console .cx-product code{font-family:var(--code-font)}
 @container cxapp (max-width:650px){
   :is(#book,:root) .cx-console .cx-grid{--stacked:1;grid-template-columns:minmax(0,1fr)}
   :is(#book,:root) .cx-console .cx-terminal{border-left:0;border-top:1px solid #494252}
@@ -106,12 +106,12 @@
   :is(#book,:root) .cx-console .cx-controls :is(.cx-run,.cx-stop) span{display:none}
 }
 :is(#book,:root) .cx-console .cx-files{max-width:76%;min-width:0}
-:is(#book,:root) .cx-console .cx-file-select{color:#f0ebfa;background:#302b3a;border:1px solid #635675;border-radius:5px;padding:3px;max-width:100%;font:12px Consolas,monospace}
+:is(#book,:root) .cx-console .cx-file-select{color:#f0ebfa;background:#302b3a;border:1px solid #635675;border-radius:5px;padding:3px;max-width:100%;font:12px var(--code-font)}
 :is(#book,:root) .cx-console .cx-result{max-height:370px;overflow:auto}
 :is(#book,:root) .cx-console .cx-errors>div+div{padding-top:8px}
 :is(#book,:root) .cx-console .cx-stdin{display:flex;align-items:flex-end;flex-wrap:wrap;gap:7px 8px;border-top:1px solid #403a4b;padding:12px;color:#e9e4ee}
 :is(#book,:root) .cx-console .cx-stdin label{flex:1 1 100px;min-width:0;display:grid;gap:4px;font-size:12px}
-:is(#book,:root) .cx-console .cx-stdin input{width:100%;min-width:0;border-radius:5px;padding:7px;font:14px/1.3 Consolas,monospace}
+:is(#book,:root) .cx-console .cx-stdin input{width:100%;min-width:0;border-radius:5px;padding:7px;font:14px/1.3 var(--code-font)}
 :is(#book,:root) :is(.prediction-answer,.cp-input input,.cx-stdin input) {
   color-scheme:dark;
   background:var(--console-field-bg);
@@ -130,7 +130,7 @@
 :is(#book,:root) :is(.cx-console,.practice-editor) .cx-codeview{min-width:0;background:var(--console-field-bg);color:var(--console-field-ink);color-scheme:dark}
 :is(#book,:root) :is(.cx-console,.practice-editor) .cm-editor{height:var(--height);text-align:left}
 :is(#book,:root) :is(.cx-console,.practice-editor) .cm-editor.cm-focused{outline:2px solid var(--console-field-focus);outline-offset:-2px}
-:is(#book,:root) :is(.cx-console,.practice-editor) .cm-scroller{font:var(--type)/var(--row) Consolas,"Courier New",monospace;overflow:auto;letter-spacing:0;font-variant-ligatures:none}
+:is(#book,:root) :is(.cx-console,.practice-editor) .cm-scroller{font:var(--type)/var(--row) var(--code-font);overflow:auto;letter-spacing:0;font-variant-ligatures:none}
 :is(#book,:root) :is(.cx-console,.practice-editor) .cm-content{padding:15px 0;caret-color:white;tab-size:4}
 :is(#book,:root) :is(.cx-console,.practice-editor) .cm-content ::selection,:is(#book,:root) :is(.cx-console,.practice-editor) .cm-content::selection{background:#70658f}
 :is(#book,:root) :is(.cx-console,.practice-editor) .cm-gutters{background:var(--console-field-bg);color:#a59db3;border:0;user-select:none}
