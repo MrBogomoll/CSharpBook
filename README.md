@@ -6,9 +6,9 @@
 
 От первой строки с `Console.WriteLine` до собственного трекера расходов с поиском и отчётами.
 
-**[Скачать для Android (.apk)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.0/Sharpwise-0.5.0-Android.apk)** · **[Скачать для Windows x64 (.zip)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.0/Sharpwise-0.5.0-Windows-x64.zip)** · [Веб-версия для своего сервера (.zip)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.0/Sharpwise-0.5.0-Web.zip)
+**[Скачать для Android (.apk)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.1/Sharpwise-0.5.1-Android.apk)** · **[Скачать для Windows x64 (.zip)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.1/Sharpwise-0.5.1-Windows-x64.zip)** · [Веб-версия для своего сервера (.zip)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.1/Sharpwise-0.5.1-Web.zip)
 
-Стабильная версия **0.5.0**. [Что изменилось в этом выпуске](https://github.com/MrBogomoll/Sharpwise/releases/tag/v0.5.0)
+Стабильная версия **0.5.1**. [Что изменилось в этом выпуске](https://github.com/MrBogomoll/Sharpwise/releases/tag/v0.5.1)
 
 ## Попробуй первый урок
 
@@ -50,7 +50,9 @@ Console.WriteLine("Свободно 8 мест");
 | iPhone или iPad в одной сети с ПК | В настройках Windows-приложения нажми «Открыть доступ по Wi-Fi». Отсканируй QR-код камерой и оставь Sharpwise открытым на компьютере. |
 | Браузер на Windows, Linux или macOS | Распакуй веб-архив. Установи ASP.NET Core Runtime 10 или .NET SDK 10. В папке архива выполни `dotnet CSharpBook.Server.dll` и открой `http://127.0.0.1:53821/`. |
 
-Для обновления открой **Настройки → Проверить обновления**. Sharpwise покажет номер версии и размер файла и спросит, скачивать ли его. На Android установку подтверждает системный установщик. Если после установки он остался на экране, нажми «Открыть». На Windows приложение перезапустится само.
+Версия 0.5.1 для Android подписана новым постоянным ключом. Перед удалением 0.5.0 синхронизируй прогресс и проверь резервную копию. Затем установи APK 0.5.1 вручную и восстанови прогресс. Следующие стабильные версии и официальные беты используют один пакет и один ключ.
+
+Для следующих обновлений открой **Настройки → Проверить обновления**. Sharpwise покажет номер версии и размер файла и спросит, скачивать ли его. На Android установку подтверждает системный установщик. Если после установки он остался на экране, нажми «Открыть». На Windows приложение перезапустится само.
 
 <details>
 <summary>Переход с ранних версий 0.2.0 и 0.3.5</summary>

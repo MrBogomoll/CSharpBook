@@ -28,17 +28,65 @@
 @container csapp (max-width:560px) {
   #book .guide-parts > div {grid-template-columns:minmax(0,1fr);gap:4px}
 }
-#book .practice-files {display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
-#book .practice-files button[aria-pressed=true] {background:var(--cs-wash);color:var(--cs-violet)}
-#book .cp-widget .practice-source {padding:14px;background:#23232f;color:#f4eff9;border-radius:8px;overflow:auto;margin:12px 0}
-#book .cp-widget .practice-source code {background:transparent;color:inherit;white-space:pre;font:14px/1.6 Consolas,monospace}
-#book .prediction-answer {display:block;box-sizing:border-box;width:100%;min-height:76px;padding:10px 12px;border-radius:7px;border:1px solid var(--cs-line);
-  color:var(--cs-ink);background:var(--cs-nav);font:14px/1.55 Consolas,monospace;resize:vertical}
+#book .practice-editor {
+  --type:14px;
+  --row:1.6;
+  --height:11rem;
+  min-width:0;
+  background:var(--console-field-bg);
+  color:var(--console-field-ink);
+  border:1px solid #403e50;
+  border-radius:8px;
+  overflow:hidden;
+  margin:12px 0;
+}
+#book .practice-filebar {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:5px 8px;
+  padding:3px 10px;
+  min-height:42px;
+  background:#292733;
+  border-bottom:1px solid #403e50;
+  color:#e1dce9;
+  font:12px/1.4 Consolas,monospace;
+}
+#book .practice-filebar > b {background:#473858;color:#d4baf7;border-radius:3px;padding:2px 4px}
+#book .practice-files,#book .practice-history {display:flex;align-items:center;flex-wrap:wrap;gap:4px;min-width:0}
+#book .practice-history {margin-inline-start:auto}
+#book .practice-file {overflow-wrap:anywhere}
+#book .cs-product .practice-files button {padding:6px 8px}
+#book .practice-files button[aria-pressed=true] {background:#473858;color:#f1e6ff}
+#book .cs-product button.practice-icon {width:36px;min-height:36px;display:grid;place-items:center}
+#book .practice-icon:disabled {opacity:.4}
+#book .cp-widget .practice-source {padding:14px;overflow:auto}
+#book .cp-widget .practice-source code {
+  padding:0;
+  background:transparent;
+  color:inherit;
+  white-space:pre;
+  font:var(--type)/var(--row) Consolas,"Courier New",monospace;
+}
+#book .cp-widget .practice-editor-error {padding:0 14px 10px;color:#ffb4c2}
+#book .cp-widget .cp-result-head {justify-content:flex-start;gap:7px}
+#book .cp-widget .cp-result-head svg {width:14px;height:14px}
+#book .prediction-answer {
+  display:block;
+  width:100%;
+  min-height:76px;
+  padding:10px 12px;
+  border-radius:8px;
+  font:14px/1.55 Consolas,monospace;
+  resize:vertical;
+}
 @container csapp (max-width:560px) {
   #book .step-label {display:none}
 }
 @media(pointer:coarse) {
   #book .cs-product .study-step {min-height:44px;min-width:44px}
+  #book .practice-editor {--type:16px}
+  #book .cs-product button.practice-icon {width:44px;min-height:44px}
   #book .prediction-answer {font-size:16px}
 }
 

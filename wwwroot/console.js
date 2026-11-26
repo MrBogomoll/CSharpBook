@@ -115,7 +115,7 @@ function mountConsolePage(container, {
     icon('terminal') + 'Результат</span><span class="cx-term-status" role="status"></span>' +
     '</div>' +
     '<div class="cx-result"><p class="cx-idle"></p><pre class="cx-out" aria-label="Вывод программы" hidden></pre>' +
-    '<div class="cx-errors"></div></div><form class="cx-stdin" hidden><label>Введи строку<input name="line" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>' +
+    '<div class="cx-errors"></div></div><form class="cx-stdin" hidden><label>Введи строку<input name="line" type="text" placeholder="// Введи строку для программы" autocomplete="off" autocapitalize="off" spellcheck="false"></label>' +
     '<button class="cx-send" type="submit">Отправить</button></form></section></div><div class="cx-help"></div></div></div>';
   container.replaceChildren(page);
   const $ = selector => page.querySelector(selector);

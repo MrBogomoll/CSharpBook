@@ -56,6 +56,8 @@ export function createCodeEditor(host, panel, file, source, onChange, onRun, pro
   function buildState(text,selection) {
     return EditorState.create({doc: text, selection, extensions: [
       lineNumbers(), history(), marks, language, syntaxHighlighting(colors),
+      EditorView.contentAttributes.compute(['doc'], state =>
+        state.doc.length ? {} : {'aria-placeholder': '// Напиши код здесь'}),
       keymap.of([{key: 'Mod-Enter', run: () => { close(); onRun(); return true; }},
         ...defaultKeymap, ...historyKeymap]),
       EditorView.contentAttributes.of({class: 'cx-input', 'aria-label': 'Код C#, ' + name,

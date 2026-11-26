@@ -1,6 +1,7 @@
 'use strict';
 
 const exerciseRuns=new Map();
+let exerciseEditor=null;
 function exercisePath(lesson,task) { return 'lesson/'+lesson.id+'/'+task.id; }
 function exerciseDone(lesson,task) { return store.get('solved/'+exercisePath(lesson,task),false); }
 // First-edition drafts already live under draft/<lesson id>.
@@ -34,14 +35,22 @@ function exerciseNavigation(lesson,task) {
   return '<div class="cs-actions">'+button(prev?'step:'+prev.id:'lesson:'+lesson.id,icon('arrow-left')+(prev?'Предыдущее упражнение':'К теории'),'cs-tool')+forward+'</div>';
 }
 function activeTask() { return findLesson(state.lesson)?.exercises.find(task=>task.id===state.step); }
+function exerciseSource(source) {
+  return '<pre class="practice-source"><code>'+syntax(source)+'</code></pre>';
+}
 function exerciseView(lesson,task) {
   const predict=task.answerMode==='output', index=lesson.exercises.indexOf(task);
-  const files=predict?{'Program.cs':task.starter,...task.files}:exerciseFiles(lesson,task);
-  const names=Object.keys(files), file=names.includes(state.taskFile)?state.taskFile:'Program.cs';
+  const files=predict?{'Program.cs':task.starter||'',...task.files}:exerciseFiles(lesson,task);
+  const names=Object.keys(files), file=state.taskFile;
   const fileTabs=names.length>1?'<div class="practice-files" role="group" aria-label="Файлы упражнения">'+names.map((name,i)=>
-    button('task-file:'+i,esc(name),'cs-tool','aria-pressed="'+(file===name)+'"')).join('')+'</div>':'';
-  const codeArea='<label class="cs-draft-label">'+(names.length>1?esc(file):'Твой код')+'<textarea class="cs-draft" rows="8" placeholder="Введи здесь свой код на C#" spellcheck="false" autocorrect="off" autocapitalize="off" aria-keyshortcuts="Control+Enter Meta+Enter">'+esc(files[file])+'</textarea></label>';
-  const prediction= predict?('<pre class="practice-source"><code>'+syntax(files[file])+'</code></pre><label class="cs-draft-label">Твой ответ<textarea class="prediction-answer" rows="3" placeholder="Введи строки в том порядке, в котором они появятся на экране" spellcheck="false" autocapitalize="off">'+esc(store.get(draftKey(lesson,task),''))+'</textarea></label>'):'';
+    button('task-file:'+i,esc(name),'practice-file','aria-pressed="'+(file===name)+'"')).join('')+'</div>':
+    '<span class="practice-file">'+esc(file)+'</span>';
+  const history=predict?'':'<div class="practice-history">'+
+    button('undo-draft',icon('undo-2'),'practice-icon','aria-label="Отменить правку" title="Отменить правку" disabled')+
+    button('redo-draft',icon('redo-2'),'practice-icon','aria-label="Повторить правку" title="Повторить правку" disabled')+'</div>';
+  const codeArea='<div class="practice-editor"><div class="practice-filebar"><b>C#</b>'+fileTabs+history+'</div>'+
+    (predict?exerciseSource(files[file]):'<div class="cx-codeview">'+exerciseSource(files[file])+'</div><div class="cx-completions cx-exercise-completions" hidden></div>')+'</div>';
+  const prediction=predict?'<label class="cs-draft-label">Твой ответ<textarea class="prediction-answer" rows="3" placeholder="// Введи вывод программы построчно" spellcheck="false" autocapitalize="off" aria-keyshortcuts="Control+Enter Meta+Enter">'+esc(store.get(draftKey(lesson,task),''))+'</textarea></label>':'';
   const gapHint = task.starter?.includes('___') && !predict
     ? '<p>Три подчёркивания <code>___</code> отмечают пропуск в заготовке. Замени их кодом.</p>' : '';
   const reference=Object.entries({'Program.cs':task.solution,...task.files}).map(([name,code])=>(names.length>1?'<strong>'+esc(name)+'</strong>':'')+copyable(code)).join('');
@@ -50,14 +59,63 @@ function exerciseView(lesson,task) {
   return banner(lesson.title+' · Упражнение '+(index+1)+' из '+lesson.exercises.length,task.title,[task.kind,level].filter(Boolean).join(' · '))+
     '<section class="cs-reading cp-widget" data-exercise="'+esc(task.id)+'"><p class="practice-instruction" data-note-anchor="instruction">'+formatText(task.instruction)+'</p>'+
     (task.stdin?.length?'<p>'+(checked?'Пример ввода':'Данные для проверки по порядку')+': '+task.stdin.map(x=>'<code>'+esc(x||'пустая строка')+'</code>').join(', ')+'.</p>':'')+
-    syntaxGuide(lesson,true)+gapHint+fileTabs+(predict?prediction:codeArea)+'<div class="cp-runbar">'+button('run-draft',icon(predict||checked?'check':'play')+(predict?'Проверить ответ':checked?'Проверить решение':'Запустить код'),'cp-run')+
+    syntaxGuide(lesson,true)+gapHint+codeArea+prediction+'<div class="cp-runbar">'+button('run-draft',icon('check')+'Проверить решение','cp-run')+
     (checked?button('run-custom',icon('play')+'Со своим вводом','cs-tool'):'')+
     (predict?'':button('stop-draft',icon('square')+'Остановить','cs-tool','hidden')+
-      button('reset-draft',icon('rotate-ccw')+'Сбросить код','cs-tool','title="Вернуть исходный код упражнения и очистить результат"'))+'</div><div class="cp-console"><div class="cp-result-head"><strong>'+(predict?'Проверка ответа':'Результат запуска')+'</strong></div>'+
-    '<div class="cp-response" role="status" aria-live="polite"><p class="cp-status">'+(exerciseDone(lesson,task)?'Упражнение решено.':predict?'Здесь появится результат проверки.':'Здесь появится вывод твоей программы.')+'</p></div>'+
-    (predict?'':'<form class="cp-input" hidden><input aria-label="Ввод для программы" autocomplete="off" placeholder="Введи строку для программы"><button type="submit">Отправить</button></form>')+'</div>'+
+      button('reset-draft',icon('rotate-ccw')+'Сбросить код','cs-tool','title="Вернуть исходный код упражнения и очистить результат"'))+'</div><div class="cp-console"><div class="cp-result-head">'+icon('terminal')+'<strong>Результат проверки</strong></div>'+
+    '<div class="cp-response" role="status" aria-live="polite"><p class="cp-status">'+exerciseReadyMessage(lesson,task)+'</p></div>'+
+    (predict?'':'<form class="cp-input" hidden><input aria-label="Ввод для программы" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="// Введи строку для программы"><button type="submit">Отправить</button></form>')+'</div>'+
     (predict?'<details><summary>Разбор ответа</summary>'+copyable(task.output)+(task.explanation?'<p>'+formatText(task.explanation)+'</p>':'')+'</details>':'<details><summary>Сверить ожидаемый вывод</summary>'+copyable(task.output)+'</details><details><summary>Посмотреть решение</summary>'+reference+'</details>')+
     '</section>'+solvedList(lesson.id)+exerciseNavigation(lesson,task);
+}
+function mountExerciseEditor(lesson,task,host) {
+  import('./editor/code-editor.js').then(({createCodeEditor})=>{
+    if(!host.isConnected)return;
+    const pane=host.closest('.practice-editor');
+    const undo=pane.querySelector('[data-action="undo-draft"]');
+    const redo=pane.querySelector('[data-action="redo-draft"]');
+    const file=state.taskFile;
+    host.replaceChildren();
+    exerciseEditor=createCodeEditor(host,pane.querySelector('.cx-completions'),file,exerciseFiles(lesson,task)[file],
+      (name,source)=>saveExerciseDraft(lesson,task,name,source),()=>runExercise(),
+      ()=>({version:Number(task.version||lesson.version||10),files:exerciseFiles(lesson,task)}),
+      (canUndo,canRedo)=>{undo.disabled=!canUndo;redo.disabled=!canRedo;});
+  }).catch(error=>{
+    if(!host.isConnected)return;
+    host.innerHTML=exerciseSource(exerciseFiles(lesson,task)[state.taskFile]);
+    const message=document.createElement('p');
+    message.className='practice-editor-error';
+    message.setAttribute('role','alert');
+    message.textContent='Не удалось открыть редактор. Попробуй перезапустить учебник.';
+    host.append(message);
+    console.error(error);
+  });
+}
+function selectExerciseFile(lesson,task,index) {
+  const names=['Program.cs',...Object.keys(task.files||{})];
+  const file=names[index];
+  if(!file || state.taskFile===file)return;
+  state.taskFile=file;
+  const predict=task.answerMode==='output';
+  const source=predict?(file==='Program.cs'?task.starter:task.files[file]):exerciseFiles(lesson,task)[file];
+  if(exerciseEditor)exerciseEditor.switchFile(file,source);
+  else reader.querySelector('.practice-source code').innerHTML=syntax(source||'');
+  reader.querySelectorAll('.practice-files button').forEach((control,i)=>{
+    control.setAttribute('aria-pressed',String(i===index));
+  });
+}
+function saveExerciseDraft(lesson,task,file,source) {
+  store.set(draftKey(lesson,task,file),source);
+  const run=exerciseRuns.get(exercisePath(lesson,task));
+  if(!run || run.running)return;
+  run.status='Решение изменено. Проверь его ещё раз.';
+  run.output='';
+  run.error=false;
+  run.failedCase=null;
+  showExerciseResult();
+}
+function exerciseReadyMessage(lesson,task) {
+  return exerciseDone(lesson,task)?'Упражнение решено.':'Здесь появится результат проверки.';
 }
 function showExerciseResult() {
   const run=exerciseRuns.get(readerKey);
@@ -83,9 +141,17 @@ function resetExercise() {
     const key=draftKey(lesson,task,name);
     if(store.get(key,source)!==source)store.set(key,source);
   }
-  state.taskFile='Program.cs';
-  paintReader();glyphs();
-  reader.querySelector('[data-action="reset-draft"]')?.focus({preventScroll:true});
+  const files=exerciseFiles(lesson,task);
+  for(const [name,source] of Object.entries(files))exerciseEditor?.updateFile(name,source,false);
+  selectExerciseFile(lesson,task,0);
+  const fallback=reader.querySelector('.practice-source code');
+  if(fallback)fallback.innerHTML=syntax(files['Program.cs']);
+  const response=reader.querySelector('.cp-response');
+  response.replaceChildren();
+  const status=document.createElement('p');
+  status.className='cp-status';
+  status.textContent=exerciseReadyMessage(lesson,task);
+  response.append(status);
 }
 function refreshStepMarks() {
   const nav=reader.querySelector('.study-steps');

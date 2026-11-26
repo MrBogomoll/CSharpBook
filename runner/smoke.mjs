@@ -47,9 +47,14 @@ try {
     await evaluate('document.querySelector(".cm-content").focus()');
     await call('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',modifiers:2,windowsVirtualKeyCode:65});
     await call('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA',modifiers:2,windowsVirtualKeyCode:65});
+    await call('Input.dispatchKeyEvent',{type:'keyDown',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});
+    await call('Input.dispatchKeyEvent',{type:'keyUp',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});
+    await until('document.querySelector(".cx-console .cm-content").hasAttribute("aria-placeholder")');
+    assert.equal(await evaluate('store.get("console").source'),'');
     const source='Console.Write("Кому? ");\nMessage message=Console.ReadLine() ?? "";\nConsole.WriteLine(message switch {string name => "Привет, "+name, int number => number.ToString()});\npublic union Message(string,int);';
     await call('Input.insertText',{text:source});
     await until('document.querySelector(".cm-content").innerText.includes("union Message")');
+    assert.equal(await evaluate('document.querySelector(".cx-console .cm-content").hasAttribute("aria-placeholder")'),false);
     await evaluate('document.querySelector(".cx-run").click()');
     await until('document.querySelector(".cx-stdin")?.hidden === false');
     await evaluate('document.querySelector(".cx-stdin input").focus()');
@@ -62,9 +67,15 @@ try {
     assert.equal(await evaluate('document.querySelector(".cx-term-status").textContent'),'Готово к запуску');
     assert.equal(await evaluate('store.get("console").source'),template);
     await evaluate('go("lesson","read-line","challenge-2")');
-    await until('!!document.querySelector("[data-action=run-custom]")');
+    await until('!!document.querySelector(".practice-editor .cm-content")');
     const checkCode=async expression=>{
-      await evaluate('(()=>{const area=document.querySelector(".cs-draft");area.value='+expression+';area.dispatchEvent(new Event("input",{bubbles:true}));document.querySelector("[data-action=run-draft]").click();})()');
+      const code=await evaluate(expression);
+      await evaluate('document.querySelector(".practice-editor .cm-content").focus()');
+      await call('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',modifiers:2,windowsVirtualKeyCode:65});
+      await call('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA',modifiers:2,windowsVirtualKeyCode:65});
+      await call('Input.insertText',{text:code});
+      await until('exerciseFiles(findLesson(state.lesson),activeTask())["Program.cs"] === '+JSON.stringify(code));
+      await evaluate('document.querySelector("[data-action=run-draft]").click()');
       await until('!document.querySelector("[data-action=run-draft]").disabled');
     };
     await checkCode('"Console.Write(" + JSON.stringify(activeTask().output) + ");"');
@@ -77,8 +88,19 @@ try {
     await until('!!document.querySelector(\'.cs-content a[href="#lesson/read-line/challenge-2"]\')');
     console.log('Only a solution that passed alternate inputs appeared in the chapter list.');
     await evaluate('document.querySelector("[data-action=reset-draft]").click()');
-    assert.ok(await evaluate('document.querySelector(".cs-draft").value === activeTask().starter'));
+    assert.ok(await evaluate('Array.from(document.querySelectorAll(".practice-editor .cm-line"),line=>line.textContent).join("\\n") === activeTask().starter'));
     assert.ok(await evaluate('exerciseDone(findLesson("read-line"),activeTask())'));
+    await evaluate('go("lesson","console","original")');
+    const emptyEditor='document.querySelector(".practice-editor .cm-content")';
+    await until(emptyEditor+'?.hasAttribute("aria-placeholder")');
+    assert.match(await evaluate(emptyEditor+'.getAttribute("aria-placeholder")'),/^\/\/ /);
+    assert.equal(await evaluate('exerciseFiles(findLesson("console"),activeTask())["Program.cs"]'),'');
+    await evaluate(emptyEditor+'.focus()');
+    await call('Input.insertText',{text:'// test'});
+    await until('exerciseFiles(findLesson("console"),activeTask())["Program.cs"] === "// test"');
+    assert.equal(await evaluate(emptyEditor+'.hasAttribute("aria-placeholder")'),false);
+    await evaluate('document.querySelector("[data-action=undo-draft]").click()');
+    await until(emptyEditor+'?.hasAttribute("aria-placeholder")');
   }
   const tests=[
     {name:'hello10',version:10,source:'Console.WriteLine("Привет!"); Console.WriteLine(Environment.Version.Major);',out:'Привет!\n10\n'},

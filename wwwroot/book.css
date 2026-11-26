@@ -159,7 +159,6 @@
 #book .cs-feedback{color:var(--cs-violet)}
 #book .cs-reading .cs-source{display:inline-block;margin:14px 0 4px;color:var(--cs-violet);font-size:12px}
 #book .cs-draft-label{display:block;font-size:12px;color:var(--cs-weak);margin:8px 0}
-#book .cs-draft{display:block;width:100%;max-width:100%;min-height:72px;margin-top:4px;padding:8px 10px;resize:vertical;color:var(--cs-ink);background:var(--cs-nav);border:1px solid var(--cs-line);border-radius:7px;font:14px/1.55 Consolas,monospace}
 #book .cs-answers .cs-tool{overflow-wrap:anywhere;max-width:100%;text-align:left}
 @container csapp (max-width:680px) {
   #book .cs-home-grid {display:flex;flex-direction:column}
@@ -414,10 +413,9 @@
 }
 
 #book .cp-widget{margin:18px 0 8px}
-#book .cp-widget .cs-draft{font-size:14px;line-height:1.55;white-space:pre;overflow:auto}
-#book .cp-runbar{display:flex;align-items:center;gap:8px;margin:8px 0 10px}
+#book .cp-runbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0 10px}
 #book .cs-product .cp-run{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 17px;background:light-dark(#603ba0,#d2b8ff);color:light-dark(#fff,#2b1e3d);font-size:14px;font-weight:650;border-radius:7px}
-#book .cp-run svg{width:15px;height:15px;fill:currentColor}
+#book .cp-run svg{width:15px;height:15px}
 #book .cp-console{background:#23232f;color:#e9e6f1;border:1px solid #403e50;border-radius:8px;padding:11px 14px;margin:0 0 8px}
 #book .cp-console>strong{display:block;color:#e2dcec;font-size:12px;margin-bottom:5px}
 #book .cp-widget .cp-status{margin:0;color:#c8c3d6;font-size:12px;line-height:1.6}
@@ -425,4 +423,4 @@
 #book .cp-widget .cp-output{font:14px/1.55 Consolas,"Courier New",monospace;color:#b8e7c9;white-space:pre-wrap;overflow-wrap:anywhere;margin:2px 0}
 #book .cp-widget .cp-problem{color:#ffaab7}
 #book .cp-widget details .cs-snippet{font:13px/1.5 Consolas,monospace}
-@container book-window (max-width:500px){#book .cs-product .cp-run{min-height:44px}#book .cp-widget .cs-draft{font-size:16px}}
+@container book-window (max-width:500px){#book .cs-product .cp-run{min-height:44px}}
