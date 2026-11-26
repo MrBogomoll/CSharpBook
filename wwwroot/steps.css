@@ -15,7 +15,7 @@
 #book .cp-widget .practice-instruction {margin:0 0 15px;line-height:1.6}
 #book .syntax-guide {min-width:0;max-width:70ch}
 #book .syntax-guide .guide-sample {margin:10px 0;padding:12px 14px;overflow-x:auto;border-radius:7px;background:#242331;color:#f4eff9}
-#book .syntax-guide .guide-sample code {padding:0;background:transparent;color:inherit;white-space:pre;font:14px/1.6 Consolas,monospace}
+#book .syntax-guide .guide-sample code {padding:0;background:transparent;color:inherit;white-space:pre;font:14px/1.6 var(--code-font)}
 #book .guide-parts {margin:0}
 #book .guide-parts > div {display:grid;grid-template-columns:minmax(6em,1fr) minmax(0,2.5fr);gap:12px;padding:9px 0;border-bottom:1px solid var(--cs-line)}
 #book .guide-parts dt {align-self:start}
@@ -50,7 +50,7 @@
   background:#292733;
   border-bottom:1px solid #403e50;
   color:#e1dce9;
-  font:12px/1.4 Consolas,monospace;
+  font:12px/1.4 var(--code-font);
 }
 #book .practice-filebar > b {background:#473858;color:#d4baf7;border-radius:3px;padding:2px 4px}
 #book .practice-files,#book .practice-history {display:flex;align-items:center;flex-wrap:wrap;gap:4px;min-width:0}
@@ -66,7 +66,7 @@
   background:transparent;
   color:inherit;
   white-space:pre;
-  font:var(--type)/var(--row) Consolas,"Courier New",monospace;
+  font:var(--type)/var(--row) var(--code-font);
 }
 #book .cp-widget .practice-editor-error {padding:0 14px 10px;color:#ffb4c2}
 #book .cp-widget .cp-result-head {justify-content:flex-start;gap:7px}
@@ -77,7 +77,7 @@
   min-height:76px;
   padding:10px 12px;
   border-radius:8px;
-  font:14px/1.55 Consolas,monospace;
+  font:14px/1.55 var(--code-font);
   resize:vertical;
 }
 @container csapp (max-width:560px) {
@@ -97,7 +97,7 @@
 }
 #book .cs-content .lesson-command code {
   min-width:0;padding:0;background:transparent;color:var(--cs-ink);
-  font:500 .93rem/1.45 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;
+  font:500 .93rem/1.45 var(--code-font);white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;
 }
 #book .cs-content .lesson-command svg {width:15px;height:15px}
 #book .cs-content .lesson-command:is(:hover,:focus-visible) {background:var(--cs-wash);border-color:var(--cs-violet)}
@@ -123,7 +123,7 @@
 #book .type-example-copy[data-label="Скопировано"]::after {content:attr(data-label);font-size:.75rem}
 #book .type-example > div {display:flex;flex-wrap:wrap;gap:6px clamp(3px,1vw,10px);margin:9px 0}
 #book .type-example > div span {display:grid;align-content:start;gap:4px}
-#book .type-example > div code {justify-self:start;padding:2px 5px;background:var(--cs-wash);color:var(--cs-violet);font:650 1.05rem/1.35 Consolas,monospace;border-radius:4px}
+#book .type-example > div code {justify-self:start;padding:2px 5px;background:var(--cs-wash);color:var(--cs-violet);font:650 1.05rem/1.35 var(--code-font);border-radius:4px}
 #book .type-example small,#book .type-group small {color:var(--cs-weak);font-size:.78rem}
 #book .type-intro,#book .type-foot {margin:12px 0;line-height:1.5}
 #book .type-group {margin:0;padding:0;border:0;border-top:1px solid var(--cs-line)}
@@ -136,10 +136,10 @@
 #book .type-group dl > div {display:grid;grid-template-columns:minmax(7.5em,.8fr) minmax(0,2fr);gap:4px 12px;padding:10px 0;border-bottom:1px solid var(--cs-line)}
 #book .type-group dl > div:last-child {border:0}
 #book .type-group dt {display:flex;flex-direction:column;align-items:start;gap:3px;color:var(--cs-violet);overflow-wrap:anywhere}
-#book .type-group dt code {font:650 .97rem/1.4 Consolas,monospace}
+#book .type-group dt code {font:650 .97rem/1.4 var(--code-font)}
 #book .type-group dd {margin:0}
 #book .type-group button.type-copy {display:flex;justify-content:space-between;width:100%;min-height:38px;margin-top:6px;padding:5px 8px}
-#book .type-group .type-copy .type-sample {font:.88rem/1.45 Consolas,monospace}
+#book .type-group .type-copy .type-sample {font:.88rem/1.45 var(--code-font)}
 #book .type-group .type-sample span {color:inherit}
 @container csapp (max-width:560px) {
   #book .type-group dl > div {grid-template-columns:minmax(0,1fr)}
