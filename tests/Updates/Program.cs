@@ -36,7 +36,7 @@ static string Fixture(string dir, string version)
         }
         """);
     string csc = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), @"Microsoft.NET\Framework64\v4.0.30319\csc.exe");
-    using var compile = Start(csc, "/nologo", "/target:winexe", "/out:" + Path.Combine(folder, "CSharpBook.exe"), source);
+    using var compile = Start(csc, "/nologo", "/target:winexe", "/out:" + Path.Combine(folder, ReleaseUpdate.ExeName), source);
     compile.WaitForExit();
     if (compile.ExitCode != 0) throw new Exception("Fixture build failed");
     return folder;
@@ -88,21 +88,23 @@ try
     string zip = Path.Combine(dir, "next.zip");
     using (var archive = ZipFile.Open(zip, ZipArchiveMode.Create))
         foreach (string file in Directory.GetFiles(next, "*", SearchOption.AllDirectories))
-            archive.CreateEntryFromFile(file, "CSharpBook/" + Path.GetRelativePath(next, file).Replace('\\','/'));
+            archive.CreateEntryFromFile(file, "Sharpwise/" + Path.GetRelativePath(next, file).Replace('\\','/'));
     byte[] bytes = await File.ReadAllBytesAsync(zip);
     string digest = Convert.ToHexStringLower(SHA256.HashData(bytes));
     string repo = ReleaseUpdate.Repository;
     JsonElement Metadata(string version) {
-        string tag = "v" + version, name = $"CSharpBook-{version}-Windows-x64.zip";
+        string tag = "v" + version;
+        string[] names = [$"Sharpwise-{version}-Windows-x64.zip", $"Sharpwise-{version}-Windows-x64-Portable.zip"];
         return JsonSerializer.SerializeToElement(new {
             tag_name = tag, html_url = $"{repo}/releases/tag/{tag}", draft = false, prerelease = false,
-            assets = new[] { new { name, size = bytes.Length, digest = "sha256:" + digest, browser_download_url = $"{repo}/releases/download/{tag}/{name}" } }
+            assets = names.Select(name => new { name, size = bytes.Length, digest = "sha256:" + digest, browser_download_url = $"{repo}/releases/download/{tag}/{name}" })
         });
     }
     Assert(ReleaseUpdate.Select(Metadata("0.1.0"), ReleaseUpdate.DisplayVersion) == null, "Stable base never downgrades beta");
     Assert(ReleaseUpdate.Select(Metadata("0.1.0"), "0.3.5", true)?.Version == "0.1.0", "Explicit preview switch can install an older stable release");
     Assert(ReleaseUpdate.Select(Metadata("0.1.0"), "0.1.0", true)?.Version == "0.1.0", "A stable release can replace a preview of the same version");
     var asset = ReleaseUpdate.Select(Metadata("0.1.1"), ReleaseUpdate.DisplayVersion)!;
+    Assert(asset.Url.AbsolutePath.EndsWith("-Windows-x64-Portable.zip", StringComparison.Ordinal), "Selects the portable archive when both are available");
     string stage = ReleaseUpdate.CreateStage(install);
     string archivePath = Path.Combine(stage, "received.zip");
     await HttpDownload(bytes, asset, archivePath);

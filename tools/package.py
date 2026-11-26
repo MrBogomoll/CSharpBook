@@ -1,8 +1,6 @@
 """Package finalized artifacts from published desktop and optional cross-platform host builds."""
 import argparse
-from filecmp import cmp
 from pathlib import Path
-import shutil
 from xml.etree import ElementTree
 from zipfile import ZipFile,ZIP_DEFLATED,ZIP_STORED
 
@@ -18,22 +16,19 @@ if not version:
     p.error('Укажи версию приложения в host/CSharpBook.csproj перед упаковкой.')
 out=a.output.resolve()
 out.mkdir(exist_ok=True,parents=True)
-desktop=out/'Sharpwise'
-desktop.mkdir(exist_ok=True)
 web=root/'wwwroot'
-published_exe=a.windows/'CSharpBook.exe'
-desktop_exe=desktop/'CSharpBook.exe'
-if not desktop_exe.is_file() or not cmp(published_exe,desktop_exe,shallow=False):
-    shutil.copy2(published_exe,desktop_exe)
-shutil.copy2(root/'host/Начало работы.txt',desktop)
-shutil.copytree(web,desktop/'wwwroot',dirs_exist_ok=True)
-shutil.copytree(root/'host/licenses',desktop/'licenses',dirs_exist_ok=True)
-shutil.copy2(root/'LICENSE',desktop/'licenses'/'Sharpwise-LICENSE.txt')
+published_exe=a.windows/'Sharpwise.exe'
+if not published_exe.is_file():
+    p.error(f'Не найден {published_exe}. Сначала собери приложение для Windows.')
 def pack_folder(zip_,folder,prefix=''):
     for f in sorted(folder.rglob('*')):
         if f.is_file():zip_.write(f,prefix+f.relative_to(folder).as_posix(),compress_type=ZIP_STORED if f.suffix in ['.bin','.zip'] else ZIP_DEFLATED)
-with ZipFile(out/f'Sharpwise-{version}-Windows-x64.zip','w',ZIP_DEFLATED,compresslevel=3) as z:
-    pack_folder(z,desktop,'CSharpBook/')
+with ZipFile(out/f'Sharpwise-{version}-Windows-x64-Portable.zip','w',ZIP_DEFLATED,compresslevel=3) as z:
+    z.write(published_exe,'Sharpwise/Sharpwise.exe')
+    z.write(root/'host/Начало работы.txt','Sharpwise/Начало работы.txt')
+    z.write(root/'LICENSE','Sharpwise/licenses/Sharpwise-LICENSE.txt')
+    pack_folder(z,web,'Sharpwise/wwwroot/')
+    pack_folder(z,root/'host/licenses','Sharpwise/licenses/')
 with ZipFile(out/f'Sharpwise-{version}-Web.zip','w',ZIP_DEFLATED,compresslevel=5) as z:
     pack_folder(z,web,'wwwroot/')
     z.write(root/'LICENSE','LICENSE')
