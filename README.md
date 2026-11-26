@@ -6,9 +6,9 @@
 
 От первой строки с `Console.WriteLine` до собственного трекера расходов с поиском и отчётами.
 
-**[Скачать для Android (.apk)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.0/Sharpwise-0.5.0-Android.apk)** · **[Скачать для Windows x64 (.zip)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.0/Sharpwise-0.5.0-Windows-x64.zip)** · [Веб-версия для своего сервера (.zip)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.0/Sharpwise-0.5.0-Web.zip)
+**[Скачать для Android (.apk)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.1/Sharpwise-0.5.1-Android.apk)** · **[Скачать для Windows x64 (.zip)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.1/Sharpwise-0.5.1-Windows-x64.zip)** · [Веб-версия для своего сервера (.zip)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.1/Sharpwise-0.5.1-Web.zip)
 
-Стабильная версия **0.5.0**. [Что изменилось в этом выпуске](https://github.com/MrBogomoll/Sharpwise/releases/tag/v0.5.0)
+Стабильная версия **0.5.1**. [Что изменилось в этом выпуске](https://github.com/MrBogomoll/Sharpwise/releases/tag/v0.5.1)
 
 ## Попробуй первый урок
 
