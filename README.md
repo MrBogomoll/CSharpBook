@@ -1,14 +1,35 @@
-# Sharpwise — интерактивный учебник C# с нуля
+<p align="center">
+  <img src="wwwroot/icons/book-192.png" width="72" height="72" alt="">
+</p>
 
-Научись писать на C# прямо на телефоне или компьютере. В Sharpwise можно открыть консоль рядом с уроком, изменить пример и сразу увидеть, что напечатает твоя программа. На Android и Windows уроки, упражнения и компилятор работают без интернета.
+<h1 align="center">Sharpwise</h1>
 
-**18 тем · 93 главы · 610 упражнений**
+<p align="center"><strong>Интерактивный учебник C# с нуля</strong></p>
+<p align="center">18 тем · 93 главы · 610 упражнений</p>
 
-От первой строки с `Console.WriteLine` до собственного трекера расходов с поиском и отчётами.
+<p align="center">
+  <strong><a href="https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.2/Sharpwise-0.5.2-Android.apk">Скачать для Android (.apk)</a></strong> ·
+  <strong><a href="https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.2/Sharpwise-0.5.2-Windows-x64.zip">Скачать для Windows x64 (.zip)</a></strong> ·
+  <a href="https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.2/Sharpwise-0.5.2-Web.zip">Веб-версия (.zip)</a>
+</p>
 
-**[Скачать для Android (.apk)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.2/Sharpwise-0.5.2-Android.apk)** · **[Скачать для Windows x64 (.zip)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.2/Sharpwise-0.5.2-Windows-x64.zip)** · [Веб-версия для своего сервера (.zip)](https://github.com/MrBogomoll/Sharpwise/releases/download/v0.5.2/Sharpwise-0.5.2-Web.zip)
+<p align="center">
+  <a href="https://github.com/MrBogomoll/Sharpwise/releases/tag/v0.5.2">Стабильная версия 0.5.2</a>
+</p>
 
-Стабильная версия **0.5.2**. [Что изменилось в этом выпуске](https://github.com/MrBogomoll/Sharpwise/releases/tag/v0.5.2)
+![Урок слева и редактор с результатом запуска программы справа](docs/screenshots/lesson-console.webp)
+
+<details>
+<summary>Упражнения на телефоне в светлой и тёмной темах</summary>
+
+<p align="center">
+  <a href="docs/screenshots/exercise-light.webp"><img src="docs/screenshots/exercise-light.webp" width="290" alt="Упражнение «Имя с заглавной буквы» с редактором кода в светлой теме"></a>
+  <a href="docs/screenshots/exercise-dark.webp"><img src="docs/screenshots/exercise-dark.webp" width="290" alt="Упражнение «Внутри кавычек» с полем ответа в тёмной теме"></a>
+</p>
+
+</details>
+
+Научись писать на C# прямо на телефоне или компьютере. Ты начнёшь с первой строки с `Console.WriteLine` и соберёшь собственный трекер расходов с поиском и отчётами. Открой консоль рядом с уроком, измени пример и посмотри, что напечатает твоя программа. На Android и Windows уроки, упражнения и компилятор работают без интернета.
 
 ## Попробуй первый урок
 
