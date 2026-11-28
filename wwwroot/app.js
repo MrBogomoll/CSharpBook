@@ -63,17 +63,21 @@ function syncMarks() {
 }
 function settingsView() {
   const theme=store.get('theme','auto');
-  const installedApp=window.chrome?.webview || navigator.userAgent.includes('CSharpBookAndroid/');
+  const android=navigator.userAgent.includes('CSharpBookAndroid/');
+  const installedApp=window.chrome?.webview || android;
+  const androidVersion=/\bCSharpBookAndroid\/(\d+\.\d+\.\d+(?:_b\.\d+)?)\b/.exec(navigator.userAgent)?.[1];
   const preview=navigator.userAgent.includes('SharpwisePreview/');
   const betaVersion=/\bSharpwiseBeta\/(\d+\.\d+\.\d+_b\.\d+)\b/.exec(navigator.userAgent)?.[1];
   let channel='';
-  if (betaVersion) channel='<p>Официальная бета. Следующая стабильная версия установится поверх неё и сохранит твой прогресс.</p>';
+  if (betaVersion) channel='<p>Установлена бета-версия. Стабильный выпуск можно установить, когда выйдет сборка новее.</p>';
   else if (preview) channel='<p>Тестовая сборка. Перед обновлением ты увидишь номер стабильного выпуска.</p>';
-  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(betaVersion || '0.5.1')+'</p><fieldset><legend>Оформление учебника</legend>'+
+  const betaOption=android?'<p><label><input type="checkbox" id="book-update-beta"'+
+    (store.get('update-beta',false)?' checked':'')+'> Получать бета-версии</label></p>':'';
+  return '<main class="settings-view"><h1>Настройки</h1><p>Sharpwise · Версия '+(androidVersion || betaVersion || '0.5.2')+'</p><fieldset><legend>Оформление учебника</legend>'+
     [['auto','Как в системе'],['light','Светлая тема'],['dark','Тёмная тема']].map(([key,label])=>'<label><input type="radio" name="theme" value="'+key+'" '+(theme===key?'checked':'')+'> '+label+'</label>').join('')+
     '</fieldset><h2>Мой прогресс</h2><p>Прочитано <span id="book-read-count">'+state.read.length+'</span> из '+lessons.length+' глав. Черновики, закладки и прогресс сохраняются на этом устройстве.</p>'+
     solvedList('course')+'<section id="book-cloud-sync" hidden></section>'+
-    '<section id="book-updates"><h2>Обновление приложения</h2>'+channel+'<button type="button" class="cs-tool" id="book-update-button">'+
+    '<section id="book-updates"><h2>Обновление приложения</h2>'+channel+betaOption+'<button type="button" class="cs-tool" id="book-update-button">'+
     (installedApp?'Проверить обновления':'Обновить версию')+'</button><p id="book-update-status" role="status" aria-live="polite"></p></section>'+
     (store.warning?'<p role="alert">'+esc(store.warning)+'</p>':'')+
     button('exit',icon('log-out')+'Выйти из приложения','cs-tool')+'</main>';
@@ -99,7 +103,7 @@ function route() {
   if(!primary)return;
   leavingSettings=false;
   closeContents();
-  keepReadingPosition();noteMenu.hidden=true;selectionTool.hidden=true;
+  keepReadingPosition();noteMenu.hidden=true;
   const [page,arg,stepId]=location.hash.slice(1).split('/');
   const destination=page==='lesson'&&findLesson(arg)?'lesson':page==='chapter'&&/^\d+$/.test(arg)&&chapters[Number(arg)]?'chapter':
     secondaryPane&&page==='choose'?'choose':(secondaryPane?['console','saved']:['console','settings','saved','exit']).includes(page)?page:'home';

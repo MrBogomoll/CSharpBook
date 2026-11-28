@@ -52,7 +52,7 @@ public final class BookActivity extends Activity {
         updater = new BookUpdater(this);
         cloud = new CloudBridge(this, origin);
         String channel = BuildConfig.VERSION_NAME.contains("_b.") ? " SharpwiseBeta/" + BuildConfig.VERSION_NAME : "";
-        settings.setUserAgentString(settings.getUserAgentString() + " CSharpBookAndroid/1" + channel);
+        settings.setUserAgentString(settings.getUserAgentString() + " CSharpBookAndroid/" + BuildConfig.VERSION_NAME + channel);
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
@@ -67,8 +67,9 @@ public final class BookActivity extends Activity {
                 if (!request.isForMainFrame()) return false;
                 Uri uri = request.getUrl();
                 if ("csharpbook".equals(uri.getScheme())) {
-                    if ("csharpbook://update/start".equals(uri.toString()) && view.getUrl() != null && local(Uri.parse(view.getUrl()))) {
-                        if (request.hasGesture()) updater.start();
+                    boolean beta = "csharpbook://update/start?channel=beta".equals(uri.toString());
+                    if ((beta || "csharpbook://update/start".equals(uri.toString())) && view.getUrl() != null && local(Uri.parse(view.getUrl()))) {
+                        if (request.hasGesture()) updater.start(beta);
                         else showUpdate("Нажми «Проверить обновления» в настройках.", false);
                     }
                     return true;

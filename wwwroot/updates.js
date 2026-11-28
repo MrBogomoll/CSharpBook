@@ -17,6 +17,8 @@
     renderedButton = button;
     if (status.textContent !== state.message) status.textContent = state.message;
     button.disabled = state.busy;
+    const beta = document.getElementById('book-update-beta');
+    if (beta) beta.disabled = state.busy;
   }
   function set(message, busy = false) {
     state = { message, busy };
@@ -29,6 +31,9 @@
     if (e.data?.type === 'update') nativeUpdate(e.data);
   });
   window.addEventListener('book-native-update', e => nativeUpdate(e.detail));
+  document.addEventListener('change', e => {
+    if (e.target.id === 'book-update-beta') store.set('update-beta', e.target.checked);
+  });
 
   async function updateWeb() {
     if (newerCache) { location.reload(); return; }
@@ -65,7 +70,8 @@
     set('Проверяем обновления…', true);
     try {
       if (windows) windows.postMessage('update-start');
-      else if (android) location.href = 'csharpbook://update/start';
+      else if (android) location.href = 'csharpbook://update/start'+
+        (document.getElementById('book-update-beta')?.checked ? '?channel=beta' : '');
       else await updateWeb();
     } catch { set('Не удалось проверить обновление. Проверь подключение и попробуй ещё раз.'); }
   });

@@ -17,8 +17,8 @@ import java.util.*;
 final class BookUpdater {
     static final int PERMISSION = 723, INSTALL = 724;
     static final String PREFS = "updater", INSTALL_TASK = "installTask";
-    static final String REPO = "https://github.com/MrBogomoll/Sharpwise";
     private static final String LATEST = "https://api.github.com/repos/MrBogomoll/Sharpwise/releases/latest";
+    private static final String BETA = "https://api.github.com/repos/MrBogomoll/Sharpwise/releases/tags/beta";
     private final BookActivity activity;
     private final SharedPreferences prefs;
     private boolean busy;
@@ -45,22 +45,7 @@ final class BookUpdater {
         activity.runOnUiThread(() -> { if (alive()) state(text, working); });
     }
 
-    private static String stableVersion(String tag) throws IOException {
-        if (!tag.matches("v?(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})"))
-            throw new IOException("Неизвестный формат версии выпуска.");
-        return tag.startsWith("v") ? tag.substring(1) : tag;
-    }
-    static String newer(String tag, String current) throws IOException {
-        String version = stableVersion(tag);
-        String[] available = version.split("\\."), installed = current.split("_", 2)[0].split("\\.");
-        for (int i = 0; i < 3; i++) {
-            int comparison = Integer.compare(Integer.parseInt(available[i]), Integer.parseInt(installed[i]));
-            if (comparison != 0) return comparison > 0 ? version : null;
-        }
-        return current.matches("[0-9]+\\.[0-9]+\\.[0-9]+_b\\.[1-9][0-9]*") ? version : null;
-    }
-
-    private static HttpURLConnection connection(String address, boolean asset) throws IOException {
+    private static HttpURLConnection connection(String address, boolean asset, boolean optional) throws IOException {
         URL url = new URL(address);
         for (int i = 0; i < 4; i++) {
             HttpURLConnection conn = (HttpURLConnection)url.openConnection();
@@ -73,6 +58,7 @@ final class BookUpdater {
             if (code == 200) return conn;
             String location = conn.getHeaderField("Location");
             conn.disconnect();
+            if (optional && code == 404) return null;
             if (!asset || code < 300 || code >= 400 || location == null) {
                 if (code == 403 || code == 429) throw new IOException("GitHub временно ограничил запросы. Попробуй позже.");
                 throw new IOException("GitHub вернул код " + code + ".");
@@ -85,8 +71,9 @@ final class BookUpdater {
         }
         throw new IOException("Слишком много перенаправлений при загрузке.");
     }
-    private static JSONObject release() throws Exception {
-        HttpURLConnection conn = connection(LATEST, false);
+    private static JSONObject release(String address, boolean optional) throws Exception {
+        HttpURLConnection conn = connection(address, false, optional);
+        if (conn == null) return null;
         try (InputStream in = conn.getInputStream(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[8192]; int n;
             while ((n = in.read(buffer)) != -1) {
@@ -105,7 +92,7 @@ final class BookUpdater {
         File target = UpdateFile.file(activity);
         File temp = File.createTempFile("book-update-", ".part", activity.getCacheDir());
         try {
-            HttpURLConnection conn = connection(url, true);
+            HttpURLConnection conn = connection(url, true, false);
             MessageDigest sha = MessageDigest.getInstance("SHA-256");
             try (InputStream input = conn.getInputStream(); OutputStream output = new FileOutputStream(temp)) {
                 byte[] buffer = new byte[65536];
@@ -146,39 +133,29 @@ final class BookUpdater {
                  new HashSet<>(Arrays.asList(next.signingInfo.getApkContentsSigners()))))
             throw new IOException("Подпись APK не совпадает с установленной версией.");
     }
-    void start() {
+    void start(boolean receiveBetas) {
         if (busy) return;
-        state("Проверяем последний выпуск…", true);
+        state("Проверяем обновления…", true);
         new Thread(() -> {
             try {
-                JSONObject rel = release();
-                if (rel.getBoolean("draft") || rel.getBoolean("prerelease")) throw new IOException("GitHub вернул предварительный выпуск.");
-                String tag = rel.getString("tag_name");
-                if (!(REPO + "/releases/tag/" + tag).equals(rel.getString("html_url"))) throw new IOException("Не удалось подтвердить источник выпуска.");
-                PackageInfo installed = installed();
-                String version = stableVersion(tag);
-                if (newer(tag, installed.versionName) == null) {
-                    post(installed.versionName.contains("_b.")
-                        ? "Стабильный выпуск для этой беты ещё не опубликован." : "У тебя последняя версия.", false);
-                    return;
-                }
-                JSONArray assets = rel.getJSONArray("assets");
-                JSONObject asset = null;
-                for (int i = 0; i < assets.length(); i++) {
-                    JSONObject item = assets.getJSONObject(i);
-                    String candidate = item.getString("name");
-                    if (candidate.equals("Sharpwise-" + version + "-Android.apk") || candidate.equals("CSharpBook-" + version + "-Android.apk")) {
-                        if (asset != null) throw new IOException("В выпуске несколько файлов APK.");
-                        asset = item;
+                String current = installed().versionName;
+                UpdateRelease candidate = UpdateRelease.find(release(LATEST, false), false, current);
+                if (receiveBetas) {
+                    try {
+                        UpdateRelease beta = UpdateRelease.find(release(BETA, true), true, current);
+                        if (beta != null && (candidate == null || UpdateRelease.compare(beta.version, candidate.version) > 0))
+                            candidate = beta;
+                    } catch (Exception unavailable) {
+                        if (candidate == null) throw unavailable;
                     }
                 }
-                if (asset == null) throw new IOException("В выпуске пока нет APK.");
-                String url = REPO + "/releases/download/" + tag + "/" + asset.getString("name");
-                String digest = asset.getString("digest");
-                long size = asset.getLong("size");
-                if (!url.equals(asset.getString("browser_download_url")) || !digest.matches("sha256:[0-9a-f]{64}") || size < 1 || size > 512L*1024*1024)
-                    throw new IOException("Не удалось подтвердить файл выпуска.");
-                activity.runOnUiThread(() -> offerDownload(url, version, size, digest.substring(7)));
+                if (candidate == null) {
+                    post(!receiveBetas && current.contains("_b.")
+                        ? "Пока нет стабильной версии новее установленной беты." : "У тебя последняя доступная версия.", false);
+                    return;
+                }
+                UpdateRelease next = candidate;
+                activity.runOnUiThread(() -> offerDownload(next.url, next.version, next.size, next.digest));
             } catch (Exception error) { post("Обновление не завершено. " + reason(error), false); }
         }, "book-update-check").start();
     }
@@ -186,7 +163,8 @@ final class BookUpdater {
         if (!alive()) return;
         state("Доступна версия " + version + ".", true);
         String details = "Sharpwise " + version + " · " + Formatter.formatShortFileSize(activity, size);
-        if (BuildConfig.VERSION_NAME.contains("_b.")) details += "\nСтабильный выпуск заменит тестовую сборку.";
+        if (version.contains("_b.")) details += "\nЭто тестовая сборка.";
+        else if (BuildConfig.VERSION_NAME.contains("_b.")) details += "\nСтабильный выпуск заменит тестовую сборку.";
         new AlertDialog.Builder(activity)
             .setTitle("Скачать обновление?")
             .setMessage(details)

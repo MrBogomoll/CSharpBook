@@ -1,5 +1,5 @@
 'use strict';
-let noteMenu,noteDialog,selectionTool,noteContext,editedNote,pendingNote,rightClickSelection;
+let noteMenu,noteDialog,noteContext,editedNote,pendingNote,rightClickSelection;
 function decorateNoteMarks() {
   if(!reader)return;
   const anchors=[...reader.querySelectorAll('[data-note-anchor]')];
@@ -136,7 +136,7 @@ function openNoteMenu(target,x,y,event) {
   const topic=target.closest('[data-action^="lesson:"]'),chapter=target.closest('[data-action^="expand:"],[data-action^="chapter:"]');
   const inArticle=reader.contains(target)&&target.closest('.cs-content');
   if(!(passage||topic||chapter||inArticle)||target.closest('textarea,input,.cm-editor,.cp-console'))return;
-  event?.preventDefault();selectionTool.hidden=true;noteMenu.replaceChildren();
+  event?.preventDefault();noteMenu.replaceChildren();
   const context=passage?(rightClickSelection?.node===passage?rightClickSelection.context:passageContext(passage)):null;
   rightClickSelection=null;
   if(context){
@@ -159,6 +159,8 @@ function openNoteMenu(target,x,y,event) {
     menuItem(ids.every(id=>state.saved.includes(id))?'Убрать из закладок':many?'Добавить главы в закладки':'Добавить в закладки',()=>setTopicMark('saved',ids));
   }
   if(!noteMenu.childElementCount)return;
+  // Keep the quote for the menu actions and dismiss the native selection before opening the menu.
+  getSelection()?.removeAllRanges();
   noteMenu.hidden=false;
   noteMenu.style.left=Math.max(4,Math.min(x,innerWidth-noteMenu.offsetWidth-5))+'px';
   noteMenu.style.top=Math.max(4,Math.min(y,innerHeight-noteMenu.offsetHeight-5))+'px';
@@ -222,10 +224,10 @@ function revealNote() {
 }
 function setupNotes() {
   noteMenu=document.createElement('div');noteMenu.className='book-popup';noteMenu.setAttribute('role','menu');noteMenu.hidden=true;
-  selectionTool=document.createElement('button');selectionTool.type='button';selectionTool.className='selection-note';selectionTool.textContent='Добавить заметку';selectionTool.hidden=true;
+  noteMenu.addEventListener('contextmenu',e=>e.preventDefault());
   noteDialog=document.createElement('dialog');noteDialog.className='note-dialog';
   noteDialog.innerHTML='<form><h2>Новая заметка</h2><blockquote></blockquote><label>Текст заметки<textarea required rows="4"></textarea></label><div><button type="button" data-delete>Удалить</button><button type="button" data-cancel>Отмена</button><button type="submit">Сохранить</button></div></form>';
-  document.body.append(noteMenu,selectionTool,noteDialog);
+  document.body.append(noteMenu,noteDialog);
   noteDialog.querySelector('form').onsubmit=e=>{
     e.preventDefault();const body=noteDialog.querySelector('textarea').value.trim();if(!body)return;
     const id=editedNote||crypto.randomUUID?.()||('n'+Date.now().toString(36)+Math.random().toString(36).slice(2));
@@ -235,7 +237,7 @@ function setupNotes() {
   noteDialog.querySelector('[data-cancel]').onclick=()=>noteDialog.close();
   noteDialog.querySelector('[data-delete]').onclick=()=>{store.set('note/'+editedNote,null);noteDialog.close();decorateNoteMarks();glyphs();if(state.page==='saved')render();};
   document.addEventListener('pointerdown',e=>{if(!noteMenu.contains(e.target))noteMenu.hidden=true;});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){noteMenu.hidden=true;selectionTool.hidden=true;}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')noteMenu.hidden=true;});
   let lastPointerType='';
   root.addEventListener('pointerdown',event=>{
     lastPointerType=event.pointerType;rightClickSelection=null;
@@ -243,8 +245,9 @@ function setupNotes() {
     if(event.button===2&&node&&!getSelection().isCollapsed)rightClickSelection={node,context:passageContext(node)};
   },true);
   root.addEventListener('contextmenu',e=>{
-    // Keep Android selection handles available. Touch actions are next to each passage.
-    if((e.pointerType||lastPointerType)==='touch'&&e.target.closest('[data-note-anchor]'))return;
+    // Some touch browsers report a long press as a mouse context menu.
+    if(e.pointerType==='touch'||e.sourceCapabilities?.firesTouchEvents||
+       lastPointerType==='touch'||matchMedia('(pointer: coarse)').matches)return;
     openNoteMenu(e.target,e.clientX,e.clientY,e);
   });
   root.addEventListener('click',e=>{
@@ -252,15 +255,4 @@ function setupNotes() {
     if(type==='edit-note')editNote(store.get('note/'+id,null));
     if(type==='show-note')goToNote(store.get('note/'+id,null));
   });
-  let selected=null;
-  function trackSelection(){
-    const selection=getSelection();const range=selection?.rangeCount?selection.getRangeAt(0):null;
-    const parent=range?.startContainer.nodeType===1?range.startContainer:range?.startContainer.parentElement;
-    const node=parent?.closest('[data-note-anchor]');
-    selected=range&&!range.collapsed&&node&&reader.contains(node)&&node.getClientRects().length?passageContext(node):null;
-    selectionTool.hidden=!selected||noteDialog.open||!noteMenu.hidden;
-  }
-  document.addEventListener('selectionchange',trackSelection);
-  selectionTool.onpointerdown=e=>e.preventDefault();
-  selectionTool.onclick=()=>{if(selected)editNote(selected);selectionTool.hidden=true;};
 }

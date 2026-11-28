@@ -74,9 +74,10 @@ html {scrollbar-gutter:auto}
 #book .cs-content [data-note-anchor]{position:relative}
 #book .cs-content button.passage-more {margin-inline-start:.45em;padding:1px 4px;vertical-align:middle;min-height:0;color:var(--cs-weak);opacity:0}
 #book .cs-content [data-note-anchor]:hover>.passage-more,#book .cs-content button.passage-more:focus-visible{opacity:1}
-.book-popup,.note-dialog,.selection-note {font:14px/1.5 "Segoe UI",sans-serif;color:var(--cs-ink);background:var(--cs-surface);border:1px solid var(--cs-line);border-radius:9px;box-shadow:0 8px 28px #0004}
+.book-popup,.note-dialog {font:14px/1.5 "Segoe UI",sans-serif;color:var(--cs-ink);background:var(--cs-surface);border:1px solid var(--cs-line);border-radius:9px;box-shadow:0 8px 28px #0004}
 .book-popup {position:fixed;z-index:20;display:grid;padding:5px;max-width:96vw}
-.book-popup[hidden],.selection-note[hidden]{display:none}
+.book-popup[hidden]{display:none}
+.book-popup,.book-popup button,#book .passage-more,#book .passage-notes {-webkit-user-select:none;user-select:none}
 .book-popup button,.note-dialog button {font:inherit;color:inherit;background:transparent;border:0;text-align:left;padding:9px 12px;border-radius:5px}
 .book-popup button:is(:hover,:focus-visible),.note-dialog button:hover {background:var(--cs-wash)}
 .note-dialog {max-width:min(440px,88vw);width:100%;padding:20px}
@@ -85,8 +86,7 @@ html {scrollbar-gutter:auto}
 .note-dialog blockquote {margin:14px 0;padding-left:10px;border-left:3px solid var(--cs-violet);max-height:7em;overflow:auto;white-space:pre-wrap}
 .note-dialog textarea {width:100%;box-sizing:border-box;font:inherit;display:block;margin:4px 0 12px;padding:8px;background:var(--cs-nav);color:inherit;border:1px solid var(--cs-line);border-radius:5px}
 .note-dialog form>div {display:flex;justify-content:flex-end;gap:5px}
-.note-dialog button[type=submit],.selection-note {background:var(--cs-violet);color:var(--cs-surface)}
-.selection-note {position:fixed;z-index:10;right:15px;bottom:max(76px,env(safe-area-inset-bottom));padding:8px 12px}
+.note-dialog button[type=submit] {background:var(--cs-violet);color:var(--cs-surface)}
 #book .notes-list li {display:flex;align-items:start;justify-content:space-between;border-bottom:1px solid var(--cs-line)}
 #book .notes-list .note-link {flex:1;display:grid;gap:4px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;min-width:0}
 #book .note-edit {padding:12px}
